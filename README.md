@@ -7,8 +7,15 @@ A simple cash ledger app built with Next.js and Supabase. Track cash in/out tran
 - Create a new project
 - Copy the Project URL and the `anon` public API key
 
-## 2. Create table
+## 2. Create tables
 Run this SQL in the Supabase SQL editor:
+
+```sql
+create table names (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null unique,
+  created_at timestamp default now()
+);
 
 create table transactions (
   id uuid primary key default uuid_generate_v4(),
@@ -16,13 +23,15 @@ create table transactions (
   type text not null check (type in ('in', 'out')),
   note text,
   transaction_date timestamp not null default now(),
+  entered_by uuid references names(id),
   created_at timestamp default now()
 );
+```
 
-**If you already have the table with `transaction_date` as `date`, run this ALTER statement:**
+**If you already have the transactions table, add the entered_by column:**
 
 ```sql
-ALTER TABLE transactions ALTER COLUMN transaction_date TYPE timestamp USING transaction_date::timestamp;
+ALTER TABLE transactions ADD COLUMN entered_by uuid references names(id);
 ```
 
 ## 3. Env setup
@@ -40,6 +49,7 @@ Open http://localhost:3000
 
 ## Notes
 - Track cash in/out transactions with notes, dates, and timestamps
+- Add multiple people who can enter transactions
 - Filter transactions by date and search notes
 - View opening balance, current balance, total cash in, and total cash out
 - Modern dark UI with responsive design
