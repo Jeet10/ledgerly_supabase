@@ -79,7 +79,9 @@ button {
 }
 
 .stats-grid {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .card {
@@ -152,6 +154,42 @@ button.secondary {
   border: 1px solid rgba(148, 163, 184, 0.24);
   background: transparent;
   color: var(--text);
+}
+
+button.cash-in {
+  border: none;
+  background: linear-gradient(135deg, var(--success), #16a34a);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 16px;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  flex: 1;
+}
+
+button.cash-in:hover {
+  transform: translateY(-1px);
+  opacity: 0.98;
+}
+
+button.cash-out {
+  border: none;
+  background: linear-gradient(135deg, var(--danger), #ea580c);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 16px;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  flex: 1;
+}
+
+button.cash-out:hover {
+  transform: translateY(-1px);
+  opacity: 0.98;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .muted {

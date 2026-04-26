@@ -1,6 +1,6 @@
 # Ledgerly (Supabase Version)
 
-A simple customer ledger app built with Next.js and Supabase. Track customers, balances, and transaction history with a modern frontend interface.
+A simple cash ledger app built with Next.js and Supabase. Track cash in/out transactions with notes, dates, and filtering capabilities.
 
 ## 1. Setup Supabase
 - Go to https://supabase.com
@@ -15,8 +15,15 @@ create table transactions (
   amount numeric not null,
   type text not null check (type in ('in', 'out')),
   note text,
+  transaction_date timestamp not null default now(),
   created_at timestamp default now()
 );
+
+**If you already have the table with `transaction_date` as `date`, run this ALTER statement:**
+
+```sql
+ALTER TABLE transactions ALTER COLUMN transaction_date TYPE timestamp USING transaction_date::timestamp;
+```
 
 ## 3. Env setup
 Create `frontend/.env.local` with:
@@ -32,5 +39,7 @@ docker compose up --build
 Open http://localhost:3000
 
 ## Notes
-- The frontend is already wired to Supabase for customers and transaction records.
-- Use the app to add customers, record credits and debits, and watch balances update live.
+- Track cash in/out transactions with notes, dates, and timestamps
+- Filter transactions by date and search notes
+- View opening balance, current balance, total cash in, and total cash out
+- Modern dark UI with responsive design
