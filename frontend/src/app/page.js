@@ -10,6 +10,7 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
 })
 
 const formatMoney = value => currencyFormatter.format(Number(value) || 0)
+
 const formatDate = value => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Not set'
@@ -23,152 +24,311 @@ const toDateTimeLocalValue = value => {
   return localDate.toISOString().slice(0, 16)
 }
 
+const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
+
 export default function Home() {
-  const [transactions, setTransactions] = useState([])
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const [allTransactions, setAllTransactions] = useState([])
+  const [members, setMembers] = useState([])
+  const [selectedMemberName, setSelectedMemberName] = useState('')
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [showMembersModal, setShowMembersModal] = useState(false)
+
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [transactionDate, setTransactionDate] = useState(toDateTimeLocalValue())
+
   const [filterStartDate, setFilterStartDate] = useState('')
   const [filterEndDate, setFilterEndDate] = useState('')
   const [filterNote, setFilterNote] = useState('')
-  const [selectedName, setSelectedName] = useState('')
-  const [names, setNames] = useState([])
-  const [newName, setNewName] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [editingTransaction, setEditingTransaction] = useState(null)
-  const [showNamesModal, setShowNamesModal] = useState(false)
+
+  const [newMember, setNewMember] = useState('')
+
+  const [authMode, setAuthMode] = useState('sign-in')
+  const [orgName, setOrgName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authSubmitting, setAuthSubmitting] = useState(false)
 
   useEffect(() => {
-    loadData()
+    let mounted = true
+
+    const bootstrap = async () => {
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession()
+
+      if (mounted) {
+        setSession(currentSession)
+        setAuthLoading(false)
+      }
+    }
+
+    bootstrap()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setAuthLoading(false)
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
-    loadTransactions()
-  }, [filterStartDate, filterEndDate, filterNote])
+    if (!session?.user?.id) {
+      setAllTransactions([])
+      setMembers([])
+      setSelectedMemberName('')
+      return
+    }
 
-  const loadData = async () => {
-    setLoading(true)
-    await Promise.all([loadTransactions(), loadNames()])
-    setLoading(false)
-  }
+    loadWorkspace(session.user.id)
+  }, [session?.user?.id])
 
   const handleError = message => {
     setError(message)
-    setTimeout(() => setError(''), 4500)
+    window.clearTimeout(handleError.timeoutId)
+    handleError.timeoutId = window.setTimeout(() => setError(''), 4500)
   }
 
-  const loadTransactions = async () => {
+  const loadWorkspace = async userId => {
     setLoading(true)
-    let query = supabase
-      .from('transactions')
-      .select('id,amount,type,note,transaction_date,created_at,entered_by')
-      .order('transaction_date', { ascending: false })
-
-    if (filterStartDate || filterEndDate) {
-      if (filterStartDate) {
-        const startDate = new Date(filterStartDate)
-        startDate.setHours(0, 0, 0, 0)
-        query = query.gte('transaction_date', startDate.toISOString())
-      }
-      if (filterEndDate) {
-        const endDate = new Date(filterEndDate)
-        endDate.setHours(23, 59, 59, 999)
-        query = query.lte('transaction_date', endDate.toISOString())
-      }
-    }
-
-    if (filterNote) {
-      query = query.ilike('note', `%${filterNote}%`)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      handleError('Unable to load transactions. Check your Supabase setup.')
-      setTransactions([])
-    } else {
-      setTransactions((data || []).map(tx => ({
-        ...tx,
-        amount: Number(tx.amount || 0),
-      })))
-    }
-
+    await Promise.all([loadTransactions(userId), loadMembers(userId)])
     setLoading(false)
   }
 
-  const loadNames = async () => {
-    const { data, error } = await supabase
-      .from('names')
-      .select('id,name')
+  const loadTransactions = async userId => {
+    const { data, error: queryError } = await supabase
+      .from('transactions')
+      .select('id,amount,type,note,transaction_date,created_at,member_name')
+      .eq('owner_id', userId)
+      .order('transaction_date', { ascending: false })
+
+    if (queryError) {
+      handleError('Unable to load transactions. Check your Supabase tables and policies.')
+      setAllTransactions([])
+      return
+    }
+
+    setAllTransactions(
+      (data || []).map(transaction => ({
+        ...transaction,
+        amount: Number(transaction.amount || 0),
+      }))
+    )
+  }
+
+  const loadMembers = async userId => {
+    const { data, error: queryError } = await supabase
+      .from('members')
+      .select('name')
+      .eq('owner_id', userId)
       .order('name')
 
-    if (error) {
-      console.error('Error loading names:', error)
-    } else {
-      setNames(data || [])
-      if (data && data.length > 0 && !selectedName) {
-        setSelectedName(data[0].id)
+    if (queryError) {
+      handleError('Unable to load members. Check your Supabase tables and policies.')
+      setMembers([])
+      return
+    }
+
+    setMembers(data || [])
+    setSelectedMemberName(currentMember => {
+      if (!data?.length) return ''
+      if (currentMember && data.some(member => member.name === currentMember)) return currentMember
+      return data[0].name
+    })
+  }
+
+  const filteredTransactions = useMemo(() => {
+    return allTransactions.filter(transaction => {
+      if (filterStartDate) {
+        const startDate = new Date(filterStartDate)
+        startDate.setHours(0, 0, 0, 0)
+        if (new Date(transaction.transaction_date) < startDate) return false
       }
-    }
-  }
 
-  const addName = async () => {
-    if (!newName.trim()) {
-      handleError('Name cannot be empty.')
+      if (filterEndDate) {
+        const endDate = new Date(filterEndDate)
+        endDate.setHours(23, 59, 59, 999)
+        if (new Date(transaction.transaction_date) > endDate) return false
+      }
+
+      if (filterNote) {
+        const noteValue = transaction.note?.toLowerCase() || ''
+        if (!noteValue.includes(filterNote.toLowerCase())) return false
+      }
+
+      return true
+    })
+  }, [allTransactions, filterEndDate, filterNote, filterStartDate])
+
+  const summary = useMemo(() => {
+    const totalIn = allTransactions
+      .filter(transaction => transaction.type === 'in')
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    const totalOut = allTransactions
+      .filter(transaction => transaction.type === 'out')
+      .reduce((sum, transaction) => sum + transaction.amount, 0)
+
+    let openingBalance = 0
+    if (filterStartDate) {
+      const startDate = new Date(filterStartDate)
+      startDate.setHours(0, 0, 0, 0)
+
+      openingBalance = allTransactions.reduce((sum, transaction) => {
+        if (new Date(transaction.transaction_date) >= startDate) return sum
+        return sum + (transaction.type === 'in' ? transaction.amount : -transaction.amount)
+      }, 0)
+    }
+
+    return {
+      totalIn,
+      totalOut,
+      currentBalance: totalIn - totalOut,
+      openingBalance,
+      transactionCount: filteredTransactions.length,
+    }
+  }, [allTransactions, filterStartDate, filteredTransactions.length])
+
+  const submitAuth = async event => {
+    event.preventDefault()
+
+    if (!email.trim() || !password) {
+      handleError('Email and password are required.')
       return
     }
 
-    const { error } = await supabase
-      .from('names')
-      .insert([{ name: newName.trim() }])
-
-    if (error) {
-      handleError('Unable to add name.')
+    if (authMode === 'sign-up' && !orgName.trim()) {
+      handleError('Organization name is required for sign up.')
       return
     }
 
-    setNewName('')
-    loadNames()
+    setAuthSubmitting(true)
+
+    if (authMode === 'sign-up') {
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            org_name: orgName.trim(),
+          },
+        },
+      })
+
+      setAuthSubmitting(false)
+
+      if (signUpError) {
+        handleError(signUpError.message)
+        return
+      }
+
+      handleError('Account created. If email confirmation is enabled, verify your email before signing in.')
+      setAuthMode('sign-in')
+      setPassword('')
+      return
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    })
+
+    setAuthSubmitting(false)
+
+    if (signInError) {
+      handleError(signInError.message)
+      return
+    }
+
+    setPassword('')
   }
 
-  const deleteName = async (id, name) => {
-    // Check if name is being used in transactions
-    const { data: transactionsUsingName } = await supabase
+  const signOut = async () => {
+    const { error: signOutError } = await supabase.auth.signOut()
+
+    if (signOutError) {
+      handleError('Unable to sign out right now.')
+    }
+  }
+
+  const addMember = async () => {
+    if (!session?.user?.id) return
+
+    if (!newMember.trim()) {
+      handleError('Member name cannot be empty.')
+      return
+    }
+
+    const { error: insertError } = await supabase.from('members').insert([
+      {
+        owner_id: session.user.id,
+        name: newMember.trim(),
+      },
+    ])
+
+    if (insertError) {
+      handleError(insertError.message || 'Unable to add member.')
+      return
+    }
+
+    setNewMember('')
+    await loadMembers(session.user.id)
+  }
+
+  const deleteMember = async memberName => {
+    if (!session?.user?.id) return
+
+    const { data: linkedTransactions, error: queryError } = await supabase
       .from('transactions')
       .select('id')
-      .eq('entered_by', id)
+      .eq('owner_id', session.user.id)
+      .eq('member_name', memberName)
       .limit(1)
 
-    if (transactionsUsingName && transactionsUsingName.length > 0) {
-      handleError(`Cannot delete "${name}" because it has associated transactions.`)
+    if (queryError) {
+      handleError('Unable to validate member usage.')
       return
     }
 
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) {
+    if (linkedTransactions?.length) {
+      handleError(`Cannot delete "${memberName}" because the member has transactions.`)
       return
     }
 
-    const { error } = await supabase
-      .from('names')
+    if (!window.confirm(`Are you sure you want to delete "${memberName}"?`)) {
+      return
+    }
+
+    const { error: deleteError } = await supabase
+      .from('members')
       .delete()
-      .eq('id', id)
+      .eq('owner_id', session.user.id)
+      .eq('name', memberName)
 
-    if (error) {
-      handleError('Unable to delete name.')
+    if (deleteError) {
+      handleError(deleteError.message || 'Unable to delete member.')
       return
     }
 
-    loadNames()
-    // If the deleted name was selected, clear the selection
-    if (selectedName === id) {
-      setSelectedName('')
-    }
+    await loadMembers(session.user.id)
   }
 
-  const addTransaction = async (transactionType) => {
-    if (!selectedName) {
-      handleError('Please select who is entering this transaction.')
+  const addTransaction = async transactionType => {
+    if (!session?.user?.id) return
+
+    if (!selectedMemberName) {
+      handleError('Please select a member for this transaction.')
       return
     }
 
@@ -178,46 +338,51 @@ export default function Home() {
       return
     }
 
-    const { error } = await supabase
-      .from('transactions')
-      .insert([{ 
-        amount: value, 
-        type: transactionType, 
+    const { error: insertError } = await supabase.from('transactions').insert([
+      {
+        owner_id: session.user.id,
+        amount: value,
+        type: transactionType,
         note: note.trim(),
         transaction_date: transactionDate,
-        entered_by: selectedName
-      }])
+        member_name: selectedMemberName,
+      },
+    ])
 
-    if (error) {
-      handleError('Unable to save transaction.')
+    if (insertError) {
+      handleError(insertError.message || 'Unable to save transaction.')
       return
     }
 
     setAmount('')
     setNote('')
-    loadTransactions()
+    setTransactionDate(toDateTimeLocalValue())
+    await loadTransactions(session.user.id)
   }
 
-  const deleteTransaction = async (id) => {
-    if (!confirm('Are you sure you want to delete this transaction?')) {
+  const deleteTransaction = async transactionId => {
+    if (!session?.user?.id) return
+
+    if (!window.confirm('Are you sure you want to delete this transaction?')) {
       return
     }
 
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from('transactions')
       .delete()
-      .eq('id', id)
+      .eq('owner_id', session.user.id)
+      .eq('id', transactionId)
 
-    if (error) {
-      handleError('Unable to delete transaction.')
+    if (deleteError) {
+      handleError(deleteError.message || 'Unable to delete transaction.')
       return
     }
 
-    loadTransactions()
+    await loadTransactions(session.user.id)
   }
 
   const updateTransaction = async () => {
-    if (!editingTransaction) return
+    if (!session?.user?.id || !editingTransaction) return
 
     const value = Number(editingTransaction.amount)
     if (!value || value <= 0) {
@@ -225,59 +390,33 @@ export default function Home() {
       return
     }
 
-    const { error } = await supabase
+    if (!editingTransaction.member_name) {
+      handleError('Select a member before saving this transaction.')
+      return
+    }
+
+    const { error: updateError } = await supabase
       .from('transactions')
       .update({
         amount: value,
         type: editingTransaction.type,
         note: editingTransaction.note.trim(),
         transaction_date: editingTransaction.transaction_date,
-        entered_by: editingTransaction.entered_by
+        member_name: editingTransaction.member_name,
       })
+      .eq('owner_id', session.user.id)
       .eq('id', editingTransaction.id)
 
-    if (error) {
-      handleError('Unable to update transaction.')
+    if (updateError) {
+      handleError(updateError.message || 'Unable to update transaction.')
       return
     }
 
     setEditingTransaction(null)
-    loadTransactions()
+    await loadTransactions(session.user.id)
   }
 
-  const summary = useMemo(() => {
-    const allTransactions = transactions.filter(tx => !filterStartDate && !filterEndDate && !filterNote)
-
-    const totalIn = allTransactions
-      .filter(tx => tx.type === 'in')
-      .reduce((sum, tx) => sum + tx.amount, 0)
-
-    const totalOut = allTransactions
-      .filter(tx => tx.type === 'out')
-      .reduce((sum, tx) => sum + tx.amount, 0)
-
-    const currentBalance = totalIn - totalOut
-
-    // Calculate opening balance (balance before filtered transactions)
-    let openingBalance = 0
-    if (filterStartDate) {
-      // Get all transactions before the start date
-      const startDateTime = new Date(filterStartDate)
-      startDateTime.setHours(0, 0, 0, 0)
-      const beforeFilter = allTransactions.filter(tx => new Date(tx.transaction_date) < startDateTime)
-      const beforeIn = beforeFilter.filter(tx => tx.type === 'in').reduce((sum, tx) => sum + tx.amount, 0)
-      const beforeOut = beforeFilter.filter(tx => tx.type === 'out').reduce((sum, tx) => sum + tx.amount, 0)
-      openingBalance = beforeIn - beforeOut
-    }
-
-    return {
-      totalIn,
-      totalOut,
-      currentBalance,
-      openingBalance,
-      transactionCount: transactions.length,
-    }
-  }, [transactions, filterStartDate, filterEndDate, filterNote])
+  const currentUser = session?.user
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -294,18 +433,126 @@ export default function Home() {
     )
   }
 
+  if (authLoading) {
+    return (
+      <main className="main-shell">
+        <div className="container auth-shell">
+          <div className="card auth-card">
+            <h1>Ledgerly</h1>
+            <p className="muted">Checking your session...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!currentUser) {
+    return (
+      <main className="main-shell">
+        <div className="container auth-shell">
+          <section className="card auth-card">
+            <div className="auth-copy">
+              <span className="badge">Organization login</span>
+              <h1>Ledgerly</h1>
+              <p>
+                Sign in as an organization user to access your own ledger. Members stay inside your workspace and are used only for transaction ownership.
+              </p>
+            </div>
+
+            {error && (
+              <div className="error-toast auth-toast" role="status" aria-live="polite">
+                <span className="error-dot">!</span>
+                <span>{error}</span>
+                <button type="button" onClick={() => setError('')} aria-label="Dismiss message">
+                  x
+                </button>
+              </div>
+            )}
+
+            <form className="auth-form" onSubmit={submitAuth}>
+              <div className="auth-switch">
+                <button
+                  type="button"
+                  className={authMode === 'sign-in' ? 'secondary active-tab' : 'secondary'}
+                  onClick={() => setAuthMode('sign-in')}
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  className={authMode === 'sign-up' ? 'secondary active-tab' : 'secondary'}
+                  onClick={() => setAuthMode('sign-up')}
+                >
+                  Create account
+                </button>
+              </div>
+
+              {authMode === 'sign-up' && (
+                <div className="form-group">
+                  <label htmlFor="org-name">Organization name</label>
+                  <input
+                    id="org-name"
+                    type="text"
+                    placeholder="Acme Retail"
+                    value={orgName}
+                    onChange={event => setOrgName(event.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="owner@company.com"
+                  value={email}
+                  onChange={event => setEmail(event.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="password">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="Minimum 6 characters"
+                  value={password}
+                  onChange={event => setPassword(event.target.value)}
+                />
+              </div>
+
+              <button className="primary" type="submit" disabled={authSubmitting}>
+                {authSubmitting ? 'Please wait...' : authMode === 'sign-in' ? 'Sign in' : 'Create organization user'}
+              </button>
+            </form>
+          </section>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="main-shell">
       <div className="container">
         <header className="brand-row">
           <div className="brand">
             <h1>Ledgerly</h1>
-            <p>Track cash in/out transactions with notes, dates, and timestamps.</p>
+            <p>Manage cash flow for {getOrgLabel(currentUser)}. Members stay scoped to this organization only.</p>
           </div>
-          <div className="header-actions">
-            <button className="secondary" onClick={() => setShowNamesModal(true)}>
-              Manage names
-            </button>
+          <div className="header-actions header-actions-stack">
+            <div className="user-chip">
+              <strong>{getOrgLabel(currentUser)}</strong>
+              <span>{currentUser.email}</span>
+            </div>
+            <div className="header-button-row">
+              <button className="secondary" onClick={() => setShowMembersModal(true)}>
+                Manage members
+              </button>
+              <button className="secondary" onClick={signOut}>
+                Sign out
+              </button>
+            </div>
           </div>
         </header>
 
@@ -319,7 +566,7 @@ export default function Home() {
           <div className="card">
             <h2>Cash balance</h2>
             <strong>{formatMoney(summary.currentBalance)}</strong>
-            <span className="badge">{summary.transactionCount} transactions</span>
+            <span className="badge">{summary.transactionCount} shown</span>
           </div>
 
           <div className="card">
@@ -351,78 +598,70 @@ export default function Home() {
               <h2>Record cash flow</h2>
               <div className="entry-grid">
                 <div className="form-group">
-                <label htmlFor="amount">Amount</label>
-                <input
-                  id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={event => setAmount(event.target.value)}
-                />
+                  <label htmlFor="amount">Amount</label>
+                  <input
+                    id="amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={event => setAmount(event.target.value)}
+                  />
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="transaction-date">Date & Time</label>
-                <div className="date-time-input-wrapper">
+                  <label htmlFor="transaction-date">Date and time</label>
                   <input
                     id="transaction-date"
                     type="datetime-local"
                     value={transactionDate}
                     onChange={event => setTransactionDate(event.target.value)}
                   />
-                  <button
-                    type="button"
-                    className="date-time-picker-btn"
-                    aria-label="Pick date and time"
-                  >
-                    📅
-                  </button>
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label>Entered by</label>
-                {names.length === 0 ? (
-                  <p className="muted">Add names from the Manage names panel.</p>
-                ) : (
-                  <div className="chip-list">
-                    {names.map(name => (
-                      <button
-                        key={name.id}
-                        className={selectedName === name.id ? 'name-pill active' : 'name-pill'}
-                        onClick={() => setSelectedName(selectedName === name.id ? '' : name.id)}
+                <div className="form-group">
+                  <label>Member</label>
+                  {members.length === 0 ? (
+                    <p className="muted">Add members from the Manage members panel.</p>
+                  ) : (
+                    <div className="chip-list">
+                      {members.map(member => (
+                        <button
+                          key={member.name}
+                          type="button"
+                        className={selectedMemberName === member.name ? 'name-pill active' : 'name-pill'}
+                        onClick={() => setSelectedMemberName(selectedMemberName === member.name ? '' : member.name)}
                       >
-                        {name.name}
+                        {member.name}
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="note">Note</label>
-                <textarea
-                  id="note"
-                  rows="2"
-                  placeholder="Optional note"
-                  value={note}
-                  onChange={event => setNote(event.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Type</label>
-                <div className="button-group">
-                  <button className="cash-in" onClick={() => addTransaction('in')}>
-                    Cash In
-                  </button>
-                  <button className="cash-out" onClick={() => addTransaction('out')}>
-                    Cash Out
-                  </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                <div className="form-group">
+                  <label htmlFor="note">Note</label>
+                  <textarea
+                    id="note"
+                    rows="2"
+                    placeholder="Optional note"
+                    value={note}
+                    onChange={event => setNote(event.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Type</label>
+                  <div className="button-group">
+                    <button className="cash-in" type="button" onClick={() => addTransaction('in')}>
+                      Cash In
+                    </button>
+                    <button className="cash-out" type="button" onClick={() => addTransaction('out')}>
+                      Cash Out
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
           </div>
@@ -466,6 +705,7 @@ export default function Home() {
                   {(filterStartDate || filterEndDate || filterNote) && (
                     <button
                       className="secondary compact-button"
+                      type="button"
                       onClick={() => {
                         setFilterStartDate('')
                         setFilterEndDate('')
@@ -477,14 +717,14 @@ export default function Home() {
                   )}
                 </div>
               </div>
+
               {loading ? (
                 <p className="muted">Loading transactions...</p>
-              ) : transactions.length === 0 ? (
+              ) : filteredTransactions.length === 0 ? (
                 <p className="muted">
                   {filterStartDate || filterEndDate || filterNote
-                    ? `No transactions found${filterStartDate || filterEndDate ? ` between ${filterStartDate ? new Date(filterStartDate).toLocaleDateString('en-IN') : 'start'} and ${filterEndDate ? new Date(filterEndDate).toLocaleDateString('en-IN') : 'end'}` : ''}${filterNote ? ` matching "${filterNote}"` : ''}.`
-                    : 'No cash movements yet. Add cash in or cash out to get started.'
-                  }
+                    ? 'No transactions matched the current filters.'
+                    : 'No cash movements yet. Add cash in or cash out to get started.'}
                 </p>
               ) : (
                 <div className="table-wrapper">
@@ -492,38 +732,27 @@ export default function Home() {
                     <span>Type</span>
                     <span>Amount</span>
                     <span>Note</span>
-                    <span>Entered by</span>
-                    <span>Date & Time</span>
+                    <span>Member</span>
+                    <span>Date and time</span>
                     <span>Actions</span>
                   </div>
                   <div className="table-body">
-                    {transactions.map(tx => (
-                      <div key={tx.id} className="table-row">
+                    {filteredTransactions.map(transaction => (
+                      <div key={transaction.id} className="table-row">
                         <span>
-                          <span className={`tag ${tx.type === 'in' ? 'credit' : 'debit'}`}>
-                            {tx.type === 'in' ? 'Cash in' : 'Cash out'}
+                          <span className={`tag ${transaction.type === 'in' ? 'credit' : 'debit'}`}>
+                            {transaction.type === 'in' ? 'Cash in' : 'Cash out'}
                           </span>
                         </span>
-                        <span>{formatMoney(tx.amount)}</span>
-                        <span>{tx.note || '—'}</span>
-                        <span>{names.find(n => n.id === tx.entered_by)?.name || 'Unknown'}</span>
-                        <span>{tx.transaction_date ? new Date(tx.transaction_date).toLocaleString('en-IN', {
-                          dateStyle: 'short',
-                          timeStyle: 'short'
-                        }) : formatDate(tx.created_at)}</span>
+                        <span>{formatMoney(transaction.amount)}</span>
+                        <span>{transaction.note || '-'}</span>
+                        <span>{transaction.member_name || 'Unknown'}</span>
+                        <span>{transaction.transaction_date ? formatDate(transaction.transaction_date) : formatDate(transaction.created_at)}</span>
                         <span className="action-cell">
-                          <button 
-                            className="secondary" 
-                            onClick={() => setEditingTransaction(tx)}
-                            style={{ fontSize: '12px', padding: '4px 8px' }}
-                          >
+                          <button className="secondary" type="button" onClick={() => setEditingTransaction(transaction)}>
                             Edit
                           </button>
-                          <button 
-                            className="danger" 
-                            onClick={() => deleteTransaction(tx.id)}
-                            style={{ fontSize: '12px', padding: '4px 8px' }}
-                          >
+                          <button className="danger" type="button" onClick={() => deleteTransaction(transaction.id)}>
                             Delete
                           </button>
                         </span>
@@ -539,8 +768,8 @@ export default function Home() {
         {editingTransaction && (
           <div className="modal-overlay">
             <div className="edit-modal card">
-              <h2>Edit Transaction</h2>
-              
+              <h2>Edit transaction</h2>
+
               <div className="form-group">
                 <label htmlFor="edit-amount">Amount</label>
                 <input
@@ -550,33 +779,34 @@ export default function Home() {
                   step="0.01"
                   placeholder="0.00"
                   value={editingTransaction.amount}
-                  onChange={event => setEditingTransaction({...editingTransaction, amount: event.target.value})}
+                  onChange={event => setEditingTransaction({ ...editingTransaction, amount: event.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label htmlFor="edit-transaction-date">Date & Time</label>
+                <label htmlFor="edit-transaction-date">Date and time</label>
                 <input
                   id="edit-transaction-date"
                   type="datetime-local"
                   value={toDateTimeLocalValue(editingTransaction.transaction_date)}
-                  onChange={event => setEditingTransaction({...editingTransaction, transaction_date: event.target.value})}
+                  onChange={event => setEditingTransaction({ ...editingTransaction, transaction_date: event.target.value })}
                 />
               </div>
 
               <div className="form-group">
-                <label>Entered by</label>
-                {names.length === 0 ? (
-                  <p className="muted">No names available.</p>
+                <label>Member</label>
+                {members.length === 0 ? (
+                  <p className="muted">No members available.</p>
                 ) : (
                   <div className="chip-list">
-                    {names.map(name => (
+                    {members.map(member => (
                       <button
-                        key={name.id}
-                        className={editingTransaction.entered_by === name.id ? 'name-pill active' : 'name-pill'}
-                        onClick={() => setEditingTransaction({...editingTransaction, entered_by: editingTransaction.entered_by === name.id ? null : name.id})}
+                        key={member.name}
+                        type="button"
+                        className={editingTransaction.member_name === member.name ? 'name-pill active' : 'name-pill'}
+                        onClick={() => setEditingTransaction({ ...editingTransaction, member_name: member.name })}
                       >
-                        {name.name}
+                        {member.name}
                       </button>
                     ))}
                   </div>
@@ -590,23 +820,25 @@ export default function Home() {
                   rows="3"
                   placeholder="Optional note"
                   value={editingTransaction.note || ''}
-                  onChange={event => setEditingTransaction({...editingTransaction, note: event.target.value})}
+                  onChange={event => setEditingTransaction({ ...editingTransaction, note: event.target.value })}
                 />
               </div>
 
               <div className="form-group">
                 <label>Type</label>
                 <div className="button-group">
-                  <button 
+                  <button
                     className={editingTransaction.type === 'in' ? 'cash-in' : 'secondary'}
-                    onClick={() => setEditingTransaction({...editingTransaction, type: 'in'})}
+                    type="button"
+                    onClick={() => setEditingTransaction({ ...editingTransaction, type: 'in' })}
                     style={{ flex: 1 }}
                   >
                     Cash In
                   </button>
-                  <button 
+                  <button
                     className={editingTransaction.type === 'out' ? 'cash-out' : 'secondary'}
-                    onClick={() => setEditingTransaction({...editingTransaction, type: 'out'})}
+                    type="button"
+                    onClick={() => setEditingTransaction({ ...editingTransaction, type: 'out' })}
                     style={{ flex: 1 }}
                   >
                     Cash Out
@@ -615,10 +847,10 @@ export default function Home() {
               </div>
 
               <div className="button-group" style={{ marginTop: '24px' }}>
-                <button className="primary" onClick={updateTransaction}>
-                  Update Transaction
+                <button className="primary" type="button" onClick={updateTransaction}>
+                  Update transaction
                 </button>
-                <button className="secondary" onClick={() => setEditingTransaction(null)}>
+                <button className="secondary" type="button" onClick={() => setEditingTransaction(null)}>
                   Cancel
                 </button>
               </div>
@@ -626,50 +858,51 @@ export default function Home() {
           </div>
         )}
 
-        {showNamesModal && (
+        {showMembersModal && (
           <div className="modal-overlay">
             <div className="edit-modal card names-modal">
               <div className="modal-header">
-                <h2>Manage names</h2>
-                <button className="secondary" onClick={() => setShowNamesModal(false)}>
+                <h2>Manage members</h2>
+                <button className="secondary" type="button" onClick={() => setShowMembersModal(false)}>
                   Close
                 </button>
               </div>
 
               <div className="form-group">
-                <label htmlFor="new-name-modal">Add new person</label>
+                <label htmlFor="new-member-modal">Add member</label>
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <input
-                    id="new-name-modal"
+                    id="new-member-modal"
                     type="text"
-                    placeholder="Enter name"
-                    value={newName}
-                    onChange={event => setNewName(event.target.value)}
+                    placeholder="Enter member name"
+                    value={newMember}
+                    onChange={event => setNewMember(event.target.value)}
                     style={{ flex: 1, minWidth: '220px' }}
                   />
-                  <button className="primary" onClick={addName}>
-                    Add name
+                  <button className="primary" type="button" onClick={addMember}>
+                    Add member
                   </button>
                 </div>
               </div>
 
               <div className="form-group">
-                <h3 style={{ margin: 0, color: 'var(--muted)' }}>Available names</h3>
+                <h3 style={{ margin: 0, color: 'var(--muted)' }}>Members in this organization</h3>
               </div>
-              {names.length === 0 ? (
-                <p className="muted">No names yet. Add one to start tracking entries.</p>
+              {members.length === 0 ? (
+                <p className="muted">No members yet. Add one to start tracking entries.</p>
               ) : (
                 <div className="chip-list" style={{ marginTop: '12px' }}>
-                  {names.map(name => (
-                    <div key={name.id} className="chip-item">
-                      <span className="badge">{name.name}</span>
-                      <button 
-                        className="danger" 
-                        onClick={() => deleteName(name.id, name.name)}
+                  {members.map(member => (
+                    <div key={member.name} className="chip-item">
+                      <span className="badge">{member.name}</span>
+                      <button
+                        className="danger"
+                        type="button"
+                        onClick={() => deleteMember(member.name)}
                         style={{ fontSize: '10px', padding: '2px 6px', minWidth: 'auto' }}
-                        title={`Delete ${name.name}`}
+                        title={`Delete ${member.name}`}
                       >
-                        ×
+                        x
                       </button>
                     </div>
                   ))}
@@ -678,8 +911,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
-        <footer>Built with Next.js and Supabase — manage cash flow simply.</footer>
       </div>
     </main>
   )
