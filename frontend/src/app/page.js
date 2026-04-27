@@ -25,8 +25,30 @@ const toDateTimeLocalValue = value => {
 }
 
 const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
+const themeIcon = theme =>
+  theme === 'dark' ? (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 3.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V4.5a.75.75 0 0 1 .75-.75Zm0 12a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm8.25-4.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5h1.5ZM6.75 12a.75.75 0 0 1-.75.75H4.5a.75.75 0 0 1 0-1.5H6a.75.75 0 0 1 .75.75Zm10.553 5.053a.75.75 0 0 1 1.06 1.06l-1.06 1.061a.75.75 0 1 1-1.06-1.06l1.06-1.061ZM7.758 7.758a.75.75 0 0 1 0 1.06L6.697 9.879a.75.75 0 0 1-1.06-1.06l1.06-1.061a.75.75 0 0 1 1.061 0Zm10.605 2.121a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 1 1 1.06-1.061l1.06 1.06a.75.75 0 0 1 0 1.061ZM7.758 16.242a.75.75 0 0 1-1.06 0l-1.061-1.06a.75.75 0 0 1 1.06-1.061l1.06 1.06a.75.75 0 0 1 0 1.061ZM12 18a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 18Z"
+        fill="currentColor"
+      />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14.53 3.53a.75.75 0 0 1 .83.97A8.25 8.25 0 1 0 19.5 14.64a.75.75 0 0 1 .97.83A9.75 9.75 0 1 1 14.53 3.53Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
 
 export default function Home() {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'dark'
+
+    const savedTheme = window.localStorage.getItem('ledgerly-theme')
+    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark'
+  })
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -53,6 +75,11 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    window.localStorage.setItem('ledgerly-theme', theme)
+  }, [theme])
 
   useEffect(() => {
     let mounted = true
@@ -417,6 +444,7 @@ export default function Home() {
   }
 
   const currentUser = session?.user
+  const toggleTheme = () => setTheme(currentTheme => (currentTheme === 'dark' ? 'light' : 'dark'))
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -452,8 +480,22 @@ export default function Home() {
         <div className="container auth-shell">
           <section className="card auth-card">
             <div className="auth-copy">
-              <span className="badge">Organization login</span>
-              <h1>Ledgerly</h1>
+              <div className="top-bar-inline">
+                <span className="badge">Organization login</span>
+              </div>
+              <div className="brand-title-row">
+                <h1>Ledgerly</h1>
+                <button
+                  className="theme-brand-toggle"
+                  type="button"
+                  onClick={toggleTheme}
+                  aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  <span className="theme-brand-icon">{themeIcon(theme)}</span>
+                  <span className="theme-brand-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+                </button>
+              </div>
               <p>
                 Sign in as an organization user to access your own ledger. Members stay inside your workspace and are used only for transaction ownership.
               </p>
@@ -537,7 +579,19 @@ export default function Home() {
       <div className="container">
         <header className="brand-row">
           <div className="brand">
-            <h1>Ledgerly</h1>
+            <div className="brand-title-row">
+              <h1>Ledgerly</h1>
+              <button
+                className="theme-brand-toggle"
+                type="button"
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                <span className="theme-brand-icon">{themeIcon(theme)}</span>
+                <span className="theme-brand-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+              </button>
+            </div>
             <p>Manage cash flow for {getOrgLabel(currentUser)}. Members stay scoped to this organization only.</p>
           </div>
           <div className="header-actions header-actions-stack">

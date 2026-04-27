@@ -4,9 +4,11 @@
   background-color: #020617;
   color: #f8fafc;
   --bg: #020617;
+  --bg-secondary: #0f172a;
   --surface: #111827;
   --surface-strong: #1f2937;
   --surface-soft: rgba(148, 163, 184, 0.06);
+  --surface-card: rgba(15, 23, 42, 0.94);
   --border: rgba(148, 163, 184, 0.14);
   --text: #f8fafc;
   --muted: #94a3b8;
@@ -15,6 +17,58 @@
   --success: #22c55e;
   --danger: #f97316;
   --shadow: 0 30px 60px rgba(0, 0, 0, 0.32);
+  --header-accent-bg: rgba(99, 102, 241, 0.08);
+  --header-accent-border: rgba(99, 102, 241, 0.22);
+  --header-accent-text: var(--accent);
+  --input-bg: rgba(15, 23, 42, 0.9);
+  --input-hover-bg: rgba(15, 23, 42, 0.92);
+  --input-focus-bg: rgba(15, 23, 42, 0.95);
+  --surface-glass: rgba(148, 163, 184, 0.08);
+  --surface-glass-hover: rgba(148, 163, 184, 0.15);
+  --surface-row-alt: rgba(255, 255, 255, 0.01);
+  --surface-row-hover: rgba(255, 255, 255, 0.03);
+  --toast-bg: rgba(15, 23, 42, 0.94);
+  --table-text: #e2e8f0;
+  --credit-bg: rgba(34, 197, 94, 0.12);
+  --credit-text: #86efac;
+  --debit-bg: rgba(249, 115, 22, 0.12);
+  --debit-text: #fdba74;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  background-color: #f6f7fb;
+  color: #14213d;
+  --bg: #f6f7fb;
+  --bg-secondary: #e9eefb;
+  --surface: #ffffff;
+  --surface-strong: #dbe4ff;
+  --surface-soft: rgba(15, 23, 42, 0.04);
+  --surface-card: rgba(255, 255, 255, 0.88);
+  --border: rgba(15, 23, 42, 0.12);
+  --text: #14213d;
+  --muted: #5f6f8f;
+  --accent: #2457d6;
+  --accent-strong: #173ea5;
+  --success: #16803c;
+  --danger: #d9480f;
+  --shadow: 0 24px 50px rgba(15, 23, 42, 0.1);
+  --header-accent-bg: rgba(36, 87, 214, 0.08);
+  --header-accent-border: rgba(36, 87, 214, 0.18);
+  --header-accent-text: #173ea5;
+  --input-bg: rgba(255, 255, 255, 0.92);
+  --input-hover-bg: rgba(255, 255, 255, 1);
+  --input-focus-bg: rgba(255, 255, 255, 1);
+  --surface-glass: rgba(15, 23, 42, 0.04);
+  --surface-glass-hover: rgba(15, 23, 42, 0.08);
+  --surface-row-alt: rgba(36, 87, 214, 0.03);
+  --surface-row-hover: rgba(36, 87, 214, 0.06);
+  --toast-bg: rgba(255, 255, 255, 0.96);
+  --table-text: #22304d;
+  --credit-bg: rgba(22, 128, 60, 0.12);
+  --credit-text: #166534;
+  --debit-bg: rgba(217, 72, 15, 0.12);
+  --debit-text: #b45309;
 }
 
 * {
@@ -29,9 +83,11 @@ html, body {
 
 body {
   min-height: 100%;
-  background: radial-gradient(circle at top, rgba(99, 102, 241, 0.16), transparent 28%),
-    radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 20%),
+  background: radial-gradient(circle at top, color-mix(in srgb, var(--accent) 18%, transparent), transparent 28%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--bg-secondary) 55%, transparent), transparent 20%),
     var(--bg);
+  color: var(--text);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 button, input, select, textarea {
@@ -79,6 +135,21 @@ button:disabled {
 .auth-copy {
   display: grid;
   gap: 10px;
+}
+
+.brand-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.top-bar-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .auth-copy h1 {
@@ -155,8 +226,8 @@ button:disabled {
   min-width: 220px;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(99, 102, 241, 0.22);
-  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid var(--header-accent-border);
+  background: var(--header-accent-bg);
   text-align: right;
 }
 
@@ -167,6 +238,54 @@ button:disabled {
 .user-chip span {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.theme-brand-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px 0 8px;
+  border: 1px solid var(--header-accent-border);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--header-accent-bg) 90%, white), transparent),
+    var(--surface-card);
+  color: var(--header-accent-text);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-brand-toggle:hover {
+  transform: translateY(-1px);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--header-accent-bg) 95%, white), transparent),
+    color-mix(in srgb, var(--surface-card) 92%, white);
+  border-color: color-mix(in srgb, var(--header-accent-border) 75%, var(--accent));
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.theme-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--header-accent-bg);
+  color: var(--accent);
+}
+
+.theme-brand-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-brand-text {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .header-actions button.secondary {
@@ -214,10 +333,10 @@ button:disabled {
 }
 
 .card {
-  background: rgba(15, 23, 42, 0.94);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--surface-card);
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
   border-radius: 28px;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow);
   padding: 26px;
   backdrop-filter: blur(12px);
 }
@@ -255,7 +374,7 @@ input, select, textarea {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--input-bg);
   color: var(--text);
   padding: 14px 16px;
   outline: none;
@@ -267,13 +386,13 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: rgba(99, 102, 241, 0.7);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12), 0 4px 12px rgba(99, 102, 241, 0.15);
-  background: rgba(15, 23, 42, 0.95);
+  background: var(--input-focus-bg);
   transform: translateY(-1px);
 }
 
 input:hover, select:hover, textarea:hover {
   border-color: rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.92);
+  background: var(--input-hover-bg);
 }
 
 /* Date/time input specific styling */
@@ -511,7 +630,7 @@ button.primary > * {
 
 button.secondary {
   border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--surface-glass);
   color: var(--text);
   padding: 12px 18px;
   border-radius: 12px;
@@ -521,7 +640,7 @@ button.secondary {
 }
 
 button.secondary:hover {
-  background: rgba(148, 163, 184, 0.15);
+  background: var(--surface-glass-hover);
   border-color: rgba(148, 163, 184, 0.5);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -634,7 +753,7 @@ button.cash-out > * {
 
 .name-pill {
   border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(148, 163, 184, 0.06);
+  background: color-mix(in srgb, var(--surface-glass) 80%, transparent);
   color: var(--muted);
   padding: 10px 16px;
   border-radius: 20px;
@@ -792,7 +911,7 @@ button.cash-out > * {
   letter-spacing: 0.06em;
   position: sticky;
   top: 0;
-  background: rgba(15, 23, 42, 0.96);
+  background: color-mix(in srgb, var(--surface-card) 98%, transparent);
   z-index: 2;
 }
 
@@ -802,16 +921,16 @@ button.cash-out > * {
   gap: 16px;
   padding: 18px 0;
   border-top: 1px solid rgba(148, 163, 184, 0.08);
-  color: #e2e8f0;
+  color: var(--table-text);
   align-items: center;
 }
 
 .table-row:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--surface-row-alt);
 }
 
 .table-row:hover {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-row-hover);
 }
 
 .table-row span.action-cell {
@@ -835,13 +954,13 @@ button.cash-out > * {
 }
 
 .credit {
-  background: rgba(34, 197, 94, 0.12);
-  color: #86efac;
+  background: var(--credit-bg);
+  color: var(--credit-text);
 }
 
 .debit {
-  background: rgba(249, 115, 22, 0.12);
-  color: #fdba74;
+  background: var(--debit-bg);
+  color: var(--debit-text);
 }
 
 .badge {
@@ -873,9 +992,9 @@ button.cash-out > * {
   width: min(360px, calc(100vw - 28px));
   border: 1px solid rgba(249, 115, 22, 0.34);
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.94);
+  background: var(--toast-bg);
   color: var(--text);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--shadow);
   padding: 10px 12px;
   backdrop-filter: blur(16px);
   animation: toast-slide-in 180ms ease-out;
@@ -1049,6 +1168,10 @@ footer {
   .brand h1 {
     font-size: 1.65rem;
     letter-spacing: 0;
+  }
+
+  .brand-title-row {
+    gap: 10px;
   }
 
   .brand p {
@@ -1261,6 +1384,14 @@ footer {
   .transactions-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .top-bar-inline {
+    align-items: stretch;
+  }
+
+  .brand-title-row {
+    align-items: flex-start;
   }
 
   .header-actions-stack,
