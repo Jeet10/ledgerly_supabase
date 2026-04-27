@@ -10,45 +10,24 @@ const currencyFormatter = new Intl.NumberFormat('en-IN', {
 })
 
 const formatMoney = value => currencyFormatter.format(Number(value) || 0)
-const formatDate = value => new Date(value).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+const formatDate = value => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Not set'
+  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+}
 
-function DateTimePicker({ value, onChange, onConfirm, onCancel }) {
-  const previewValue = value || new Date().toISOString().slice(0, 16)
-
-  return (
-    <div className="date-time-picker">
-      <div className="form-group">
-        <label htmlFor="date-time-picker-input">Choose date and time</label>
-        <input
-          id="date-time-picker-input"
-          type="datetime-local"
-          value={previewValue}
-          onChange={event => onChange(event.target.value)}
-          autoFocus
-        />
-      </div>
-
-      <p className="muted" style={{ margin: 0 }}>
-        {formatDate(previewValue)}
-      </p>
-
-      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-        <button type="button" className="secondary" onClick={onCancel}>
-          Cancel
-        </button>
-        <button type="button" className="primary" onClick={onConfirm}>
-          Confirm
-        </button>
-      </div>
-    </div>
-  )
+const toDateTimeLocalValue = value => {
+  const date = value ? new Date(value) : new Date()
+  if (Number.isNaN(date.getTime())) return ''
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return localDate.toISOString().slice(0, 16)
 }
 
 export default function Home() {
   const [transactions, setTransactions] = useState([])
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 16))
+  const [transactionDate, setTransactionDate] = useState(toDateTimeLocalValue())
   const [filterStartDate, setFilterStartDate] = useState('')
   const [filterEndDate, setFilterEndDate] = useState('')
   const [filterNote, setFilterNote] = useState('')
@@ -59,8 +38,6 @@ export default function Home() {
   const [error, setError] = useState('')
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [showNamesModal, setShowNamesModal] = useState(false)
-  const [showDateTimeModal, setShowDateTimeModal] = useState(false)
-  const [tempDateTime, setTempDateTime] = useState('')
 
   useEffect(() => {
     loadData()
@@ -358,13 +335,22 @@ export default function Home() {
           </div>
         </div>
 
-        {error && <div className="alert">{error}</div>}
+        {error && (
+          <div className="error-toast" role="status" aria-live="polite">
+            <span className="error-dot">!</span>
+            <span>{error}</span>
+            <button type="button" onClick={() => setError('')} aria-label="Dismiss message">
+              x
+            </button>
+          </div>
+        )}
 
         <div className="main-layout">
           <div className="left-panel">
-            <section className="card">
+            <section className="card entry-card">
               <h2>Record cash flow</h2>
-              <div className="form-group">
+              <div className="entry-grid">
+                <div className="form-group">
                 <label htmlFor="amount">Amount</label>
                 <input
                   id="amount"
@@ -375,32 +361,20 @@ export default function Home() {
                   value={amount}
                   onChange={event => setAmount(event.target.value)}
                 />
-              </div>
+                </div>
 
-              <div className="form-group">
-                <label htmlFor="transaction-date">Date & Time</label>
+                <div className="form-group">
+                  <label htmlFor="transaction-date">Date & Time</label>
                 <div className="date-time-input-wrapper">
                   <input
                     id="transaction-date"
-                    type="text"
-                    value={new Date(transactionDate).toLocaleString('en-IN', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short'
-                    })}
-                    onClick={() => {
-                      setTempDateTime(transactionDate)
-                      setShowDateTimeModal(true)
-                    }}
-                    readOnly
-                    className="date-time-display"
+                    type="datetime-local"
+                    value={transactionDate}
+                    onChange={event => setTransactionDate(event.target.value)}
                   />
                   <button
                     type="button"
                     className="date-time-picker-btn"
-                    onClick={() => {
-                      setTempDateTime(transactionDate)
-                      setShowDateTimeModal(true)
-                    }}
                     aria-label="Pick date and time"
                   >
                     📅
@@ -431,7 +405,7 @@ export default function Home() {
                 <label htmlFor="note">Note</label>
                 <textarea
                   id="note"
-                  rows="3"
+                  rows="2"
                   placeholder="Optional note"
                   value={note}
                   onChange={event => setNote(event.target.value)}
@@ -449,69 +423,58 @@ export default function Home() {
                   </button>
                 </div>
               </div>
+              </div>
             </section>
           </div>
 
           <div className="right-panel">
             <section className="card transactions-card">
-              <h2>Recent cash flow</h2>
-              <div className="form-group filter-group" style={{ marginBottom: '24px' }}>
-                <div className="filter-grid">
-                  <div>
-                    <label htmlFor="filter-start-date" style={{ display: 'block', marginBottom: '8px' }}>Start date</label>
+              <div className="transactions-header">
+                <h2>Recent cash flow</h2>
+                <div className="filter-bar">
+                  <label className="filter-control" htmlFor="filter-start-date">
+                    <span>From</span>
                     <input
                       id="filter-start-date"
                       type="date"
                       value={filterStartDate}
                       onChange={event => setFilterStartDate(event.target.value)}
                     />
-                  </div>
+                  </label>
 
-                  <div>
-                    <label htmlFor="filter-end-date" style={{ display: 'block', marginBottom: '8px' }}>End date</label>
+                  <label className="filter-control" htmlFor="filter-end-date">
+                    <span>To</span>
                     <input
                       id="filter-end-date"
                       type="date"
                       value={filterEndDate}
                       onChange={event => setFilterEndDate(event.target.value)}
                     />
-                  </div>
+                  </label>
 
-                  <div>
-                    <label htmlFor="filter-note" style={{ display: 'block', marginBottom: '8px' }}>Filter by remarks</label>
+                  <label className="filter-control filter-search" htmlFor="filter-note">
+                    <span>Remarks</span>
                     <input
                       id="filter-note"
                       type="text"
-                      placeholder="Search notes..."
+                      placeholder="Search notes"
                       value={filterNote}
                       onChange={event => setFilterNote(event.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border)',
-                        background: 'rgba(15, 23, 42, 0.9)',
-                        color: 'var(--text)',
-                        fontSize: '14px'
-                      }}
                     />
-                  </div>
+                  </label>
 
-                  <div style={{ display: 'flex', alignItems: 'end', gap: '8px' }}>
-                    {(filterStartDate || filterEndDate || filterNote) && (
-                      <button
-                        className="secondary"
-                        onClick={() => {
-                          setFilterStartDate('')
-                          setFilterEndDate('')
-                          setFilterNote('')
-                        }}
-                        style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}
-                      >
-                        Clear filters
-                      </button>
-                    )}
-                  </div>
+                  {(filterStartDate || filterEndDate || filterNote) && (
+                    <button
+                      className="secondary compact-button"
+                      onClick={() => {
+                        setFilterStartDate('')
+                        setFilterEndDate('')
+                        setFilterNote('')
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
               </div>
               {loading ? (
@@ -596,7 +559,7 @@ export default function Home() {
                 <input
                   id="edit-transaction-date"
                   type="datetime-local"
-                  value={editingTransaction.transaction_date ? new Date(editingTransaction.transaction_date).toISOString().slice(0, 16) : ''}
+                  value={toDateTimeLocalValue(editingTransaction.transaction_date)}
                   onChange={event => setEditingTransaction({...editingTransaction, transaction_date: event.target.value})}
                 />
               </div>
@@ -712,23 +675,6 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {showDateTimeModal && (
-          <div className="modal-overlay">
-            <div className="edit-modal card date-time-modal">
-              <h2>Select Date & Time</h2>
-              <DateTimePicker
-                value={tempDateTime}
-                onChange={setTempDateTime}
-                onConfirm={() => {
-                  setTransactionDate(tempDateTime)
-                  setShowDateTimeModal(false)
-                }}
-                onCancel={() => setShowDateTimeModal(false)}
-              />
             </div>
           </div>
         )}

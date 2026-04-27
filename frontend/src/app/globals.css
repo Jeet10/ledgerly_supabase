@@ -773,6 +773,75 @@ button.cash-out > * {
   border-radius: 18px;
 }
 
+.error-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, calc(100vw - 28px));
+  border: 1px solid rgba(249, 115, 22, 0.34);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.94);
+  color: var(--text);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  padding: 10px 12px;
+  backdrop-filter: blur(16px);
+  animation: toast-slide-in 180ms ease-out;
+}
+
+.error-toast span:not(.error-dot) {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.error-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.18);
+  color: #fdba74;
+  font-weight: 700;
+}
+
+.error-toast button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--muted);
+  line-height: 1;
+}
+
+.error-toast button:hover {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text);
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 footer {
   text-align: center;
   color: var(--muted);
@@ -812,5 +881,320 @@ footer {
     content: "Date: ";
     font-weight: 600;
     color: var(--muted);
+  }
+}
+
+.date-time-input-wrapper {
+  display: block;
+}
+
+.date-time-picker-btn {
+  display: none;
+}
+
+.transactions-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.transactions-header h2 {
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.75fr) minmax(120px, 0.75fr) minmax(180px, 1.2fr) auto;
+  gap: 10px;
+  align-items: end;
+  flex: 1;
+}
+
+.filter-control {
+  display: grid;
+  gap: 6px;
+}
+
+.filter-control span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.compact-button {
+  white-space: nowrap;
+}
+
+@media (min-width: 961px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .main-shell {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+  }
+
+  .container {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .brand-row {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand {
+    gap: 4px;
+  }
+
+  .brand h1 {
+    font-size: 1.65rem;
+    letter-spacing: 0;
+  }
+
+  .brand p {
+    font-size: 0.86rem;
+    line-height: 1.3;
+  }
+
+  .header-actions button.secondary {
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .card {
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .card h2 {
+    margin-bottom: 8px;
+    font-size: 0.82rem;
+  }
+
+  .card strong {
+    margin-top: 0;
+    font-size: 1.25rem;
+  }
+
+  .badge {
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 0.76rem;
+  }
+
+  .main-layout {
+    grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.8fr);
+    gap: 10px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .left-panel,
+  .right-panel {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .entry-card,
+  .transactions-card {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .entry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-content: start;
+  }
+
+  .entry-grid .form-group {
+    gap: 6px;
+    margin-bottom: 0;
+  }
+
+  .entry-grid .form-group:nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+
+  label {
+    font-size: 0.78rem;
+  }
+
+  input,
+  select,
+  textarea {
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  textarea {
+    min-height: 54px;
+    resize: none;
+  }
+
+  .entry-card .chip-list {
+    max-height: 62px;
+    overflow-y: auto;
+    gap: 6px;
+    padding-right: 2px;
+  }
+
+  .name-pill {
+    border-radius: 8px;
+    padding: 6px 9px;
+    font-size: 0.78rem;
+  }
+
+  .button-group {
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  button.cash-in,
+  button.cash-out,
+  button.primary,
+  button.secondary {
+    border-radius: 8px;
+    padding: 9px 12px;
+  }
+
+  .transactions-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .transactions-header {
+    margin-bottom: 8px;
+  }
+
+  .transactions-header h2 {
+    padding-top: 8px;
+  }
+
+  .filter-bar {
+    gap: 8px;
+  }
+
+  .filter-control {
+    gap: 4px;
+  }
+
+  .filter-control span {
+    font-size: 0.72rem;
+  }
+
+  .compact-button {
+    padding: 8px 10px;
+  }
+
+  .table-wrapper {
+    min-height: 0;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  .table-head,
+  .table-row {
+    grid-template-columns: minmax(72px, 0.75fr) minmax(86px, 0.8fr) minmax(96px, 1fr) minmax(92px, 0.9fr) minmax(112px, 1fr) minmax(104px, 1fr);
+    gap: 8px;
+  }
+
+  .table-head {
+    padding: 8px 0;
+    font-size: 0.68rem;
+  }
+
+  .table-row {
+    padding: 9px 0;
+    font-size: 0.83rem;
+  }
+
+  .tag {
+    border-radius: 8px;
+    padding: 5px 7px;
+    font-size: 0.68rem;
+  }
+
+  .table-row span.action-cell {
+    gap: 6px;
+  }
+
+  .table-row span.action-cell button {
+    border-radius: 7px;
+    padding: 4px 7px !important;
+  }
+
+  .alert {
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  footer {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  html,
+  body {
+    overflow: auto;
+  }
+
+  .main-shell {
+    padding: 14px;
+  }
+
+  .container {
+    width: 100%;
+    gap: 14px;
+  }
+
+  .brand-row,
+  .transactions-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand h1 {
+    font-size: 2rem;
+    letter-spacing: 0;
+  }
+
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .entry-grid,
+  .filter-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  footer {
+    display: none;
   }
 }
