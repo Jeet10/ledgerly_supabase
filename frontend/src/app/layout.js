@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Ledgerly',
-  description: 'Cash ledger for customers and payments, built with Next.js and Supabase.',
+  title: 'GrowHigh',
+  description: 'GrowHigh helps organizations track cash movement, balances, and member activity.',
 }
 
 export default function RootLayout({ children }) {

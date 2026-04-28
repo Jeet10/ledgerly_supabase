@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import BrandLogo from './BrandLogo'
 import { supabase } from '../lib/supabaseClient'
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
@@ -46,7 +47,8 @@ export default function Home() {
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return 'dark'
 
-    const savedTheme = window.localStorage.getItem('ledgerly-theme')
+    const savedTheme =
+      window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
     return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark'
   })
   const [session, setSession] = useState(null)
@@ -78,7 +80,7 @@ export default function Home() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    window.localStorage.setItem('ledgerly-theme', theme)
+    window.localStorage.setItem('growhigh-theme', theme)
   }, [theme])
 
   useEffect(() => {
@@ -199,11 +201,11 @@ export default function Home() {
   }, [allTransactions, filterEndDate, filterNote, filterStartDate])
 
   const summary = useMemo(() => {
-    const totalIn = allTransactions
+    const totalIn = filteredTransactions
       .filter(transaction => transaction.type === 'in')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-    const totalOut = allTransactions
+    const totalOut = filteredTransactions
       .filter(transaction => transaction.type === 'out')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
 
@@ -221,11 +223,11 @@ export default function Home() {
     return {
       totalIn,
       totalOut,
-      currentBalance: totalIn - totalOut,
+      currentBalance: openingBalance + totalIn - totalOut,
       openingBalance,
       transactionCount: filteredTransactions.length,
     }
-  }, [allTransactions, filterStartDate, filteredTransactions.length])
+  }, [allTransactions, filterStartDate, filteredTransactions])
 
   const submitAuth = async event => {
     event.preventDefault()
@@ -466,7 +468,7 @@ export default function Home() {
       <main className="main-shell">
         <div className="container auth-shell">
           <div className="card auth-card">
-            <h1>Ledgerly</h1>
+            <BrandLogo compact />
             <p className="muted">Checking your session...</p>
           </div>
         </div>
@@ -484,7 +486,7 @@ export default function Home() {
                 <span className="badge">Organization login</span>
               </div>
               <div className="brand-title-row">
-                <h1>Ledgerly</h1>
+                <BrandLogo />
                 <button
                   className="theme-brand-toggle"
                   type="button"
@@ -580,7 +582,7 @@ export default function Home() {
         <header className="brand-row">
           <div className="brand">
             <div className="brand-title-row">
-              <h1>Ledgerly</h1>
+              <BrandLogo compact />
               <button
                 className="theme-brand-toggle"
                 type="button"
