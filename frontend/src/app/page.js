@@ -238,7 +238,6 @@ export default function Home() {
   const [filterNote, setFilterNote] = useState('')
   const [filterMemberName, setFilterMemberName] = useState('all')
   const [filterTransactionType, setFilterTransactionType] = useState('all')
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   const [newMember, setNewMember] = useState('')
 
@@ -298,12 +297,6 @@ export default function Home() {
     if (members.some(member => member.name === filterMemberName)) return
     setFilterMemberName('all')
   }, [filterMemberName, members])
-
-  useEffect(() => {
-    if (filterDatePreset === 'custom' || filterNote.trim()) {
-      setShowAdvancedFilters(true)
-    }
-  }, [filterDatePreset, filterNote])
 
   const handleError = message => {
     setError(message)
@@ -435,7 +428,6 @@ export default function Home() {
     setFilterNote('')
     setFilterMemberName('all')
     setFilterTransactionType('all')
-    setShowAdvancedFilters(false)
   }
 
   const savedNoteOptions = useMemo(() => {
@@ -1070,11 +1062,43 @@ export default function Home() {
           <div className="right-panel">
             <section className="card transactions-card">
               <div className="transactions-header">
-                <div>
-                  <h2>Recent cash flow</h2>
-                  <p className="filter-meta">Filtered transactions</p>
-                </div>
                 <div className="filter-toolbar">
+                  <div className="filter-toolbar-top">
+                    <div className="filter-toolbar-heading">
+                      <span className="filter-kicker">Cash Flow</span>
+                      <div className="filter-toolbar-stats">
+                        <span className="badge">{summary.transactionCount} shown</span>
+                        <span className="badge">{filterSummaryLabel}</span>
+                      </div>
+                    </div>
+                    <div className="filter-actions">
+                      <button
+                        className="export-icon-button excel-export"
+                        type="button"
+                        onClick={downloadFilteredExcel}
+                        aria-label="Download filtered transactions as Excel"
+                        title="Download Excel"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="m9 10 6 8M15 10l-6 8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                      <button
+                        className="export-icon-button pdf-export"
+                        type="button"
+                        onClick={downloadFilteredPdf}
+                        aria-label="Download filtered transactions as PDF"
+                        title="Download PDF"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M8.5 16.5h1.2c.9 0 1.5-.6 1.5-1.4s-.6-1.4-1.5-1.4H8.5Zm5.1 2v-4.8h1.2c1.3 0 2.2.9 2.2 2.4s-.9 2.4-2.2 2.4Zm-5.1 0v-1.2m0 0v1.2m4.3-4.8H12v4.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="filter-preset-group" role="tablist" aria-label="Date range filters">
                     {datePresetOptions.map(option => (
                       <button
@@ -1119,48 +1143,27 @@ export default function Home() {
                         ))}
                       </select>
                     </label>
+
+                    <label className="filter-control filter-search" htmlFor="filter-note">
+                      <span>Remarks</span>
+                      <input
+                        id="filter-note"
+                        type="text"
+                        placeholder="Search notes"
+                        value={filterNote}
+                        onChange={event => setFilterNote(event.target.value)}
+                      />
+                    </label>
                   </div>
 
                   <div className="filter-footer">
                     <div className="filter-summary">
-                      <span className="badge">{summary.transactionCount} shown</span>
-                      <span className="badge">{filterSummaryLabel}</span>
                       <span className="badge">{filterTransactionType === 'all' ? 'All cashflow' : filterTransactionType === 'in' ? 'Cash in only' : 'Cash out only'}</span>
                       <span className="badge">{filterMemberName === 'all' ? 'All members' : filterMemberName}</span>
+                      {filterNote.trim() && <span className="badge">Remarks search on</span>}
+                      {filterDatePreset === 'custom' && <span className="badge">Custom range</span>}
                     </div>
                     <div className="filter-actions">
-                      <button
-                        className={showAdvancedFilters ? 'secondary compact-button active-filter-toggle' : 'secondary compact-button'}
-                        type="button"
-                        onClick={() => setShowAdvancedFilters(currentValue => !currentValue)}
-                        aria-expanded={showAdvancedFilters}
-                      >
-                        {showAdvancedFilters ? 'Hide filters' : 'More filters'}
-                      </button>
-                      <button
-                        className="export-icon-button excel-export"
-                        type="button"
-                        onClick={downloadFilteredExcel}
-                        aria-label="Download filtered transactions as Excel"
-                        title="Download Excel"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="m9 10 6 8M15 10l-6 8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                      <button
-                        className="export-icon-button pdf-export"
-                        type="button"
-                        onClick={downloadFilteredPdf}
-                        aria-label="Download filtered transactions as PDF"
-                        title="Download PDF"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M8.5 16.5h1.2c.9 0 1.5-.6 1.5-1.4s-.6-1.4-1.5-1.4H8.5Zm5.1 2v-4.8h1.2c1.3 0 2.2.9 2.2 2.4s-.9 2.4-2.2 2.4Zm-5.1 0v-1.2m0 0v1.2m4.3-4.8H12v4.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
                       {activeFilterCount > 0 && (
                         <button className="secondary compact-button" type="button" onClick={clearFilters}>
                           Clear {activeFilterCount}
@@ -1169,28 +1172,10 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {showAdvancedFilters && (
+                  {filterDatePreset === 'custom' && (
                     <div className="advanced-filters-panel">
                       <div className="advanced-filters-grid">
-                        <label className="filter-control filter-search" htmlFor="filter-note">
-                          <span>Remarks</span>
-                          <input
-                            id="filter-note"
-                            type="text"
-                            placeholder="Search notes"
-                            value={filterNote}
-                            onChange={event => setFilterNote(event.target.value)}
-                          />
-                        </label>
-
-                        <div
-                          className={
-                            filterDatePreset === 'custom'
-                              ? 'filter-custom-dates active'
-                              : 'filter-custom-dates inactive'
-                          }
-                          aria-hidden={filterDatePreset !== 'custom'}
-                        >
+                        <div className="filter-custom-dates active">
                           <label className="filter-control" htmlFor="filter-start-date">
                             <span>From</span>
                             <input
@@ -1198,7 +1183,6 @@ export default function Home() {
                               type="date"
                               value={filterStartDate}
                               onChange={event => setFilterStartDate(event.target.value)}
-                              disabled={filterDatePreset !== 'custom'}
                             />
                           </label>
 
@@ -1209,7 +1193,6 @@ export default function Home() {
                               type="date"
                               value={filterEndDate}
                               onChange={event => setFilterEndDate(event.target.value)}
-                              disabled={filterDatePreset !== 'custom'}
                             />
                           </label>
                         </div>

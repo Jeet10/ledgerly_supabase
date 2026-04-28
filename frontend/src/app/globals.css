@@ -1190,39 +1190,53 @@ footer {
 }
 
 .transactions-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.transactions-header h2 {
-  margin-bottom: 0;
-  white-space: nowrap;
-}
-
-.filter-meta {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+  display: block;
 }
 
 .filter-toolbar {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   flex: 1;
-  padding: 16px;
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
-  border-radius: 22px;
+  border-radius: 18px;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--surface-card) 96%, white), transparent),
     color-mix(in srgb, var(--surface-soft) 72%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.filter-toolbar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.filter-toolbar-heading {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-kicker {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.filter-toolbar-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .filter-preset-group {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -1230,9 +1244,9 @@ footer {
   border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
   background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
   color: var(--muted);
-  padding: 10px 14px;
+  padding: 8px 12px;
   border-radius: 999px;
-  font-size: 0.86rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
@@ -1253,25 +1267,14 @@ footer {
 
 .filter-grid-modern {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .filter-custom-dates {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  grid-column: 1 / -1;
-  min-height: 88px;
-  transition: opacity 0.18s ease;
-}
-
-.filter-custom-dates.inactive {
-  opacity: 0.48;
-}
-
-.filter-custom-dates.inactive input {
-  pointer-events: none;
+  gap: 10px;
 }
 
 .filter-control {
@@ -1287,13 +1290,13 @@ footer {
 .filter-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 
 .filter-summary {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
   min-width: 0;
   overflow-x: auto;
@@ -1302,7 +1305,7 @@ footer {
 
 .filter-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
   justify-content: flex-end;
   align-items: center;
@@ -1312,22 +1315,16 @@ footer {
   white-space: nowrap;
 }
 
-.active-filter-toggle {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border)) !important;
-  color: var(--accent) !important;
-  background: color-mix(in srgb, var(--header-accent-bg) 88%, transparent) !important;
-}
-
 .advanced-filters-panel {
   display: grid;
-  gap: 12px;
-  padding-top: 2px;
+  gap: 10px;
+  padding: 2px 0 0;
 }
 
 .advanced-filters-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
 .export-icon-button {
@@ -1550,18 +1547,15 @@ footer {
     margin-bottom: 8px;
   }
 
-  .transactions-header h2 {
-    padding-top: 8px;
-  }
-
-  .filter-meta {
-    font-size: 0.8rem;
-  }
-
   .filter-toolbar {
     gap: 10px;
     padding: 10px;
     border-radius: 12px;
+  }
+
+  .filter-kicker {
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
   }
 
   .filter-pill {
@@ -1571,12 +1565,11 @@ footer {
 
   .filter-grid-modern {
     gap: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .filter-custom-dates {
     gap: 8px;
-    min-height: 68px;
   }
 
   .advanced-filters-grid {
@@ -1742,6 +1735,13 @@ footer {
   .filter-toolbar {
     padding: 14px;
     border-radius: 16px;
+  }
+
+  .filter-toolbar-top,
+  .filter-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
   }
 
   .filter-preset-group,
