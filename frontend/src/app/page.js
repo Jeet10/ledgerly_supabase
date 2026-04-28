@@ -262,6 +262,9 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [showDeletedHistoryModal, setShowDeletedHistoryModal] = useState(false)
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [confirmSubmitting, setConfirmSubmitting] = useState(false)
 
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -339,6 +342,34 @@ export default function Home() {
     setError(message)
     window.clearTimeout(handleError.timeoutId)
     handleError.timeoutId = window.setTimeout(() => setError(''), 4500)
+  }
+
+  const openConfirmDialog = config => {
+    setConfirmDialog({
+      tone: 'default',
+      confirmLabel: 'Confirm',
+      cancelLabel: 'Cancel',
+      ...config,
+    })
+  }
+
+  const closeConfirmDialog = () => {
+    if (confirmSubmitting) return
+    setConfirmDialog(null)
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmDialog?.onConfirm) return
+
+    setConfirmSubmitting(true)
+    try {
+      await confirmDialog.onConfirm()
+      setConfirmDialog(null)
+    } catch (confirmError) {
+      handleError(confirmError?.message || 'Unable to complete this action.')
+    } finally {
+      setConfirmSubmitting(false)
+    }
   }
 
   const loadWorkspace = async userId => {
@@ -444,6 +475,22 @@ export default function Home() {
       return true
     })
   }, [allTransactions, filterDatePreset, filterEndDate, filterMemberName, filterNote, filterStartDate, filterTransactionType])
+
+  const visibleTransactionIds = useMemo(
+    () => filteredTransactions.map(transaction => transaction.id),
+    [filteredTransactions]
+  )
+  const selectedVisibleTransactionIds = useMemo(
+    () => visibleTransactionIds.filter(transactionId => selectedTransactionIds.includes(transactionId)),
+    [selectedTransactionIds, visibleTransactionIds]
+  )
+  const allVisibleTransactionsSelected =
+    visibleTransactionIds.length > 0 && selectedVisibleTransactionIds.length === visibleTransactionIds.length
+
+  useEffect(() => {
+    const activeTransactionIds = new Set(allTransactions.map(transaction => transaction.id))
+    setSelectedTransactionIds(currentIds => currentIds.filter(transactionId => activeTransactionIds.has(transactionId)))
+  }, [allTransactions])
 
   const summary = useMemo(() => {
     const totalIn = filteredTransactions
@@ -720,22 +767,26 @@ export default function Home() {
       return
     }
 
-    if (!window.confirm(`Are you sure you want to delete "${memberName}"?`)) {
-      return
-    }
+    openConfirmDialog({
+      title: `Delete ${memberName}?`,
+      message: 'This member will be removed from your organization.',
+      confirmLabel: 'Delete member',
+      tone: 'danger',
+      onConfirm: async () => {
+        const { error: deleteError } = await supabase
+          .from('members')
+          .delete()
+          .eq('owner_id', session.user.id)
+          .eq('name', memberName)
 
-    const { error: deleteError } = await supabase
-      .from('members')
-      .delete()
-      .eq('owner_id', session.user.id)
-      .eq('name', memberName)
+        if (deleteError) {
+          handleError(deleteError.message || 'Unable to delete member.')
+          return
+        }
 
-    if (deleteError) {
-      handleError(deleteError.message || 'Unable to delete member.')
-      return
-    }
-
-    await loadMembers(session.user.id)
+        await loadMembers(session.user.id)
+      },
+    })
   }
 
   const addTransaction = async transactionType => {
@@ -774,12 +825,29 @@ export default function Home() {
     await loadTransactions(session.user.id)
   }
 
-  const deleteTransaction = async transactionId => {
-    if (!session?.user?.id) return
+  const toggleTransactionSelection = transactionId => {
+    setSelectedTransactionIds(currentIds =>
+      currentIds.includes(transactionId)
+        ? currentIds.filter(currentId => currentId !== transactionId)
+        : [...currentIds, transactionId]
+    )
+  }
 
-    if (!window.confirm('Move this transaction to deleted history? It can be restored for 30 days before auto-delete.')) {
-      return
-    }
+  const toggleVisibleTransactionSelection = () => {
+    setSelectedTransactionIds(currentIds => {
+      if (allVisibleTransactionsSelected) {
+        return currentIds.filter(transactionId => !visibleTransactionIds.includes(transactionId))
+      }
+
+      return Array.from(new Set([...currentIds, ...visibleTransactionIds]))
+    })
+  }
+
+  const deleteTransactionsByIds = async transactionIds => {
+    if (!session?.user?.id) return
+    if (transactionIds.length === 0) return
+
+    const uniqueTransactionIds = Array.from(new Set(transactionIds))
 
     const deleteScheduledFor = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -790,14 +858,55 @@ export default function Home() {
         delete_scheduled_for: deleteScheduledFor,
       })
       .eq('owner_id', session.user.id)
-      .eq('id', transactionId)
+      .in('id', uniqueTransactionIds)
 
     if (deleteError) {
       handleError(deleteError.message || 'Unable to move transaction to deleted history.')
       return
     }
 
+    setSelectedTransactionIds(currentIds => currentIds.filter(transactionId => !uniqueTransactionIds.includes(transactionId)))
     await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id)])
+  }
+
+  const deleteTransaction = async transactionId => {
+    openConfirmDialog({
+      title: 'Delete transaction?',
+      message: 'This transaction will move to deleted history. You can restore it for 30 days before automatic removal.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+      onConfirm: async () => deleteTransactionsByIds([transactionId]),
+    })
+  }
+
+  const deleteSelectedTransactions = () => {
+    if (selectedVisibleTransactionIds.length === 0) {
+      handleError('Select at least one transaction to delete.')
+      return
+    }
+
+    openConfirmDialog({
+      title: `Delete ${selectedVisibleTransactionIds.length} selected transaction${selectedVisibleTransactionIds.length === 1 ? '' : 's'}?`,
+      message: 'Selected transactions will move to deleted history and remain restorable for 30 days.',
+      confirmLabel: 'Delete selected',
+      tone: 'danger',
+      onConfirm: async () => deleteTransactionsByIds(selectedVisibleTransactionIds),
+    })
+  }
+
+  const deleteAllVisibleTransactions = () => {
+    if (visibleTransactionIds.length === 0) {
+      handleError('No transactions available to delete.')
+      return
+    }
+
+    openConfirmDialog({
+      title: `Delete all ${visibleTransactionIds.length} shown transaction${visibleTransactionIds.length === 1 ? '' : 's'}?`,
+      message: 'Every transaction currently matching your filters will move to deleted history for 30 days.',
+      confirmLabel: 'Delete all',
+      tone: 'danger',
+      onConfirm: async () => deleteTransactionsByIds(visibleTransactionIds),
+    })
   }
 
   const restoreTransaction = async transactionId => {
@@ -809,46 +918,50 @@ export default function Home() {
       return
     }
 
-    if (!window.confirm('Restore this transaction back into the main ledger? This action will be logged in restore activity.')) {
-      return
-    }
+    openConfirmDialog({
+      title: 'Restore transaction?',
+      message: 'This transaction will return to the main ledger and the restore action will be logged.',
+      confirmLabel: 'Restore',
+      tone: 'success',
+      onConfirm: async () => {
+        const restorePayload = {
+          transaction_id: transactionToRestore.id,
+          owner_id: session.user.id,
+          restored_by_email: session.user.email || '',
+          deleted_at: transactionToRestore.deleted_at,
+          original_transaction_date: transactionToRestore.transaction_date,
+          note: transactionToRestore.note || '',
+          member_name: transactionToRestore.member_name || '',
+          amount: transactionToRestore.amount,
+          type: transactionToRestore.type,
+        }
 
-    const restorePayload = {
-      transaction_id: transactionToRestore.id,
-      owner_id: session.user.id,
-      restored_by_email: session.user.email || '',
-      deleted_at: transactionToRestore.deleted_at,
-      original_transaction_date: transactionToRestore.transaction_date,
-      note: transactionToRestore.note || '',
-      member_name: transactionToRestore.member_name || '',
-      amount: transactionToRestore.amount,
-      type: transactionToRestore.type,
-    }
+        const { error: logError } = await supabase.from('transaction_restore_events').insert([restorePayload])
 
-    const { error: logError } = await supabase.from('transaction_restore_events').insert([restorePayload])
+        if (logError) {
+          handleError(logError.message || 'Unable to log restore activity.')
+          return
+        }
 
-    if (logError) {
-      handleError(logError.message || 'Unable to log restore activity.')
-      return
-    }
+        const { error: restoreError } = await supabase
+          .from('transactions')
+          .update({
+            deleted_at: null,
+            delete_scheduled_for: null,
+            last_restored_at: new Date().toISOString(),
+            last_restored_by_email: session.user.email || '',
+          })
+          .eq('owner_id', session.user.id)
+          .eq('id', transactionId)
 
-    const { error: restoreError } = await supabase
-      .from('transactions')
-      .update({
-        deleted_at: null,
-        delete_scheduled_for: null,
-        last_restored_at: new Date().toISOString(),
-        last_restored_by_email: session.user.email || '',
-      })
-      .eq('owner_id', session.user.id)
-      .eq('id', transactionId)
+        if (restoreError) {
+          handleError(restoreError.message || 'Unable to restore transaction.')
+          return
+        }
 
-    if (restoreError) {
-      handleError(restoreError.message || 'Unable to restore transaction.')
-      return
-    }
-
-    await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id), loadRestoreEvents(session.user.id)])
+        await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id), loadRestoreEvents(session.user.id)])
+      },
+    })
   }
 
   const updateTransaction = async () => {
@@ -1344,9 +1457,43 @@ export default function Home() {
                     : 'No cash movements yet. Add cash in or cash out to get started.'}
                 </p>
               ) : (
-                <div className="table-wrapper">
+                <div className="table-wrapper transaction-table">
+                  <div className="bulk-action-bar">
+                    <div className="bulk-selection-summary">
+                      <label className="selection-control">
+                        <input
+                          type="checkbox"
+                          checked={allVisibleTransactionsSelected}
+                          onChange={toggleVisibleTransactionSelection}
+                        />
+                        <span>{selectedVisibleTransactionIds.length} selected</span>
+                      </label>
+                      <span className="badge">{filteredTransactions.length} shown</span>
+                    </div>
+                    <div className="bulk-action-buttons">
+                      <button
+                        className="danger"
+                        type="button"
+                        onClick={deleteSelectedTransactions}
+                        disabled={selectedVisibleTransactionIds.length === 0}
+                      >
+                        Delete selected
+                      </button>
+                      <button className="danger" type="button" onClick={deleteAllVisibleTransactions}>
+                        Delete all
+                      </button>
+                    </div>
+                  </div>
                   <div className="table-head">
-                    <span>Type</span>
+                    <span className="table-head-select">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all shown transactions"
+                        checked={allVisibleTransactionsSelected}
+                        onChange={toggleVisibleTransactionSelection}
+                      />
+                      Type
+                    </span>
                     <span>Amount</span>
                     <span>Note</span>
                     <span>Member</span>
@@ -1356,7 +1503,13 @@ export default function Home() {
                   <div className="table-body">
                     {filteredTransactions.map(transaction => (
                       <div key={transaction.id} className="table-row">
-                        <span>
+                        <span className="transaction-type-cell">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${transaction.type === 'in' ? 'cash in' : 'cash out'} transaction`}
+                            checked={selectedTransactionIds.includes(transaction.id)}
+                            onChange={() => toggleTransactionSelection(transaction.id)}
+                          />
                           <span className={`tag ${transaction.type === 'in' ? 'credit' : 'debit'}`}>
                             {transaction.type === 'in' ? 'Cash in' : 'Cash out'}
                           </span>
@@ -1620,7 +1773,7 @@ export default function Home() {
                         <div>
                           <strong>{formatMoney(event.amount)} {event.type === 'in' ? 'Cash in' : 'Cash out'}</strong>
                           <p>
-                            {event.member_name || 'Unknown'}{event.note ? ` • ${event.note}` : ''}
+                            {event.member_name || 'Unknown'}{event.note ? ` - ${event.note}` : ''}
                           </p>
                         </div>
                         <div className="restore-activity-meta">
@@ -1632,6 +1785,33 @@ export default function Home() {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDialog && (
+          <div className="modal-overlay confirm-overlay" role="presentation">
+            <div className={`card confirm-modal ${confirmDialog.tone === 'danger' ? 'danger-confirm' : confirmDialog.tone === 'success' ? 'success-confirm' : ''}`} role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+              <div className="confirm-icon" aria-hidden="true">
+                {confirmDialog.tone === 'danger' ? '!' : confirmDialog.tone === 'success' ? 'OK' : '?'}
+              </div>
+              <div className="confirm-copy">
+                <h2 id="confirm-title">{confirmDialog.title}</h2>
+                <p>{confirmDialog.message}</p>
+              </div>
+              <div className="confirm-actions">
+                <button className="secondary" type="button" onClick={closeConfirmDialog} disabled={confirmSubmitting}>
+                  {confirmDialog.cancelLabel}
+                </button>
+                <button
+                  className={confirmDialog.tone === 'danger' ? 'danger' : 'primary'}
+                  type="button"
+                  onClick={runConfirmedAction}
+                  disabled={confirmSubmitting}
+                >
+                  {confirmSubmitting ? 'Please wait...' : confirmDialog.confirmLabel}
+                </button>
               </div>
             </div>
           </div>
