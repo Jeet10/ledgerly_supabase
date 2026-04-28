@@ -837,6 +837,48 @@ button.cash-out > * {
   gap: 8px;
 }
 
+.note-suggestions {
+  display: grid;
+  gap: 10px;
+  margin-top: -4px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-glass) 82%, transparent);
+}
+
+.note-suggestions-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.note-suggestion-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-suggestion-chip {
+  border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
+  background: color-mix(in srgb, var(--surface-card) 92%, transparent);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.note-suggestion-chip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--header-accent-bg) 88%, white);
+  color: var(--accent);
+}
+
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1159,12 +1201,60 @@ footer {
   white-space: nowrap;
 }
 
-.filter-bar {
+.filter-meta {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.filter-toolbar {
   display: grid;
-  grid-template-columns: minmax(120px, 0.75fr) minmax(120px, 0.75fr) minmax(180px, 1.2fr) auto;
-  gap: 10px;
-  align-items: end;
+  gap: 14px;
   flex: 1;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-card) 96%, white), transparent),
+    color-mix(in srgb, var(--surface-soft) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.filter-preset-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
+  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.filter-pill:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text);
+}
+
+.filter-pill.active {
+  border-color: color-mix(in srgb, var(--accent) 75%, white);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent-strong) 14%, transparent));
+  color: var(--accent);
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.filter-grid-modern {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .filter-control {
@@ -1175,6 +1265,20 @@ footer {
 .filter-control span {
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .compact-button {
@@ -1359,8 +1463,24 @@ footer {
     padding-top: 8px;
   }
 
-  .filter-bar {
+  .filter-meta {
+    font-size: 0.8rem;
+  }
+
+  .filter-toolbar {
+    gap: 10px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .filter-pill {
+    padding: 8px 10px;
+    font-size: 0.74rem;
+  }
+
+  .filter-grid-modern {
     gap: 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .filter-control {
@@ -1369,6 +1489,10 @@ footer {
 
   .filter-control span {
     font-size: 0.72rem;
+  }
+
+  .filter-summary {
+    gap: 6px;
   }
 
   .compact-button {
@@ -1486,9 +1610,25 @@ footer {
   }
 
   .entry-grid,
-  .filter-bar {
+  .filter-grid-modern {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .filter-toolbar {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .filter-preset-group,
+  .filter-footer,
+  .filter-summary {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .filter-footer {
+    align-items: stretch;
   }
 
   .card {

@@ -18,11 +18,89 @@ const formatDate = value => {
   return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+const formatFilterDate = value => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+}
+
 const toDateTimeLocalValue = value => {
   const date = value ? new Date(value) : new Date()
   if (Number.isNaN(date.getTime())) return ''
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return localDate.toISOString().slice(0, 16)
+}
+
+const getDatePresetRange = (preset, customStartDate, customEndDate) => {
+  const now = new Date()
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+
+  const endOfToday = new Date(now)
+  endOfToday.setHours(23, 59, 59, 999)
+
+  if (preset === 'today') {
+    return { startDate: startOfToday, endDate: endOfToday }
+  }
+
+  if (preset === 'yesterday') {
+    const startDate = new Date(startOfToday)
+    startDate.setDate(startDate.getDate() - 1)
+
+    const endDate = new Date(endOfToday)
+    endDate.setDate(endDate.getDate() - 1)
+
+    return { startDate, endDate }
+  }
+
+  if (preset === 'month') {
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    startDate.setHours(0, 0, 0, 0)
+    return { startDate, endDate: endOfToday }
+  }
+
+  if (preset === 'custom') {
+    const startDate = customStartDate ? new Date(customStartDate) : null
+    const endDate = customEndDate ? new Date(customEndDate) : null
+
+    if (startDate) startDate.setHours(0, 0, 0, 0)
+    if (endDate) endDate.setHours(23, 59, 59, 999)
+
+    return { startDate, endDate }
+  }
+
+  return { startDate: null, endDate: null }
+}
+
+const datePresetOptions = [
+  { value: 'all', label: 'All' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'today', label: 'Today' },
+  { value: 'month', label: 'This Month' },
+  { value: 'custom', label: 'Custom' },
+]
+
+const typeFilterOptions = [
+  { value: 'all', label: 'All cashflow' },
+  { value: 'in', label: 'Cash in' },
+  { value: 'out', label: 'Cash out' },
+]
+
+const getSuggestedNotes = (savedNotes, inputValue) => {
+  const normalizedInput = inputValue.trim().toLowerCase()
+  if (!normalizedInput) return []
+
+  return savedNotes
+    .filter(noteOption => noteOption.normalized !== normalizedInput && noteOption.normalized.includes(normalizedInput))
+    .sort((firstNote, secondNote) => {
+      const firstStartsWith = firstNote.normalized.startsWith(normalizedInput)
+      const secondStartsWith = secondNote.normalized.startsWith(normalizedInput)
+
+      if (firstStartsWith !== secondStartsWith) return firstStartsWith ? -1 : 1
+      if (secondNote.count !== firstNote.count) return secondNote.count - firstNote.count
+      return firstNote.value.localeCompare(secondNote.value)
+    })
+    .slice(0, 5)
 }
 
 const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
@@ -66,9 +144,12 @@ export default function Home() {
   const [note, setNote] = useState('')
   const [transactionDate, setTransactionDate] = useState(toDateTimeLocalValue())
 
+  const [filterDatePreset, setFilterDatePreset] = useState('all')
   const [filterStartDate, setFilterStartDate] = useState('')
   const [filterEndDate, setFilterEndDate] = useState('')
   const [filterNote, setFilterNote] = useState('')
+  const [filterMemberName, setFilterMemberName] = useState('all')
+  const [filterTransactionType, setFilterTransactionType] = useState('all')
 
   const [newMember, setNewMember] = useState('')
 
@@ -122,6 +203,12 @@ export default function Home() {
 
     loadWorkspace(session.user.id)
   }, [session?.user?.id])
+
+  useEffect(() => {
+    if (filterMemberName === 'all') return
+    if (members.some(member => member.name === filterMemberName)) return
+    setFilterMemberName('all')
+  }, [filterMemberName, members])
 
   const handleError = message => {
     setError(message)
@@ -178,17 +265,20 @@ export default function Home() {
   }
 
   const filteredTransactions = useMemo(() => {
+    const { startDate, endDate } = getDatePresetRange(filterDatePreset, filterStartDate, filterEndDate)
+
     return allTransactions.filter(transaction => {
-      if (filterStartDate) {
-        const startDate = new Date(filterStartDate)
-        startDate.setHours(0, 0, 0, 0)
-        if (new Date(transaction.transaction_date) < startDate) return false
+      const transactionDate = new Date(transaction.transaction_date || transaction.created_at)
+
+      if (startDate && transactionDate < startDate) return false
+      if (endDate && transactionDate > endDate) return false
+
+      if (filterTransactionType !== 'all' && transaction.type !== filterTransactionType) {
+        return false
       }
 
-      if (filterEndDate) {
-        const endDate = new Date(filterEndDate)
-        endDate.setHours(23, 59, 59, 999)
-        if (new Date(transaction.transaction_date) > endDate) return false
+      if (filterMemberName !== 'all' && transaction.member_name !== filterMemberName) {
+        return false
       }
 
       if (filterNote) {
@@ -198,7 +288,7 @@ export default function Home() {
 
       return true
     })
-  }, [allTransactions, filterEndDate, filterNote, filterStartDate])
+  }, [allTransactions, filterDatePreset, filterEndDate, filterMemberName, filterNote, filterStartDate, filterTransactionType])
 
   const summary = useMemo(() => {
     const totalIn = filteredTransactions
@@ -209,13 +299,12 @@ export default function Home() {
       .filter(transaction => transaction.type === 'out')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
 
+    const { startDate } = getDatePresetRange(filterDatePreset, filterStartDate, filterEndDate)
     let openingBalance = 0
-    if (filterStartDate) {
-      const startDate = new Date(filterStartDate)
-      startDate.setHours(0, 0, 0, 0)
-
+    if (startDate) {
       openingBalance = allTransactions.reduce((sum, transaction) => {
-        if (new Date(transaction.transaction_date) >= startDate) return sum
+        const transactionDate = new Date(transaction.transaction_date || transaction.created_at)
+        if (transactionDate >= startDate) return sum
         return sum + (transaction.type === 'in' ? transaction.amount : -transaction.amount)
       }, 0)
     }
@@ -227,7 +316,62 @@ export default function Home() {
       openingBalance,
       transactionCount: filteredTransactions.length,
     }
-  }, [allTransactions, filterStartDate, filteredTransactions])
+  }, [allTransactions, filterDatePreset, filterEndDate, filterStartDate, filteredTransactions])
+
+  const activeFilterCount = [
+    filterDatePreset !== 'all',
+    filterTransactionType !== 'all',
+    filterMemberName !== 'all',
+    Boolean(filterNote.trim()),
+  ].filter(Boolean).length
+
+  const activeRange = getDatePresetRange(filterDatePreset, filterStartDate, filterEndDate)
+  const filterSummaryLabel =
+    filterDatePreset === 'custom'
+      ? [activeRange.startDate ? formatFilterDate(activeRange.startDate) : '', activeRange.endDate ? formatFilterDate(activeRange.endDate) : '']
+          .filter(Boolean)
+          .join(' - ') || 'Custom range'
+      : datePresetOptions.find(option => option.value === filterDatePreset)?.label || 'All'
+
+  const clearFilters = () => {
+    setFilterDatePreset('all')
+    setFilterStartDate('')
+    setFilterEndDate('')
+    setFilterNote('')
+    setFilterMemberName('all')
+    setFilterTransactionType('all')
+  }
+
+  const savedNoteOptions = useMemo(() => {
+    const noteCounts = new Map()
+
+    allTransactions.forEach(transaction => {
+      const trimmedNote = transaction.note?.trim()
+      if (!trimmedNote) return
+
+      const normalizedNote = trimmedNote.toLowerCase()
+      const currentEntry = noteCounts.get(normalizedNote)
+
+      if (currentEntry) {
+        currentEntry.count += 1
+        return
+      }
+
+      noteCounts.set(normalizedNote, {
+        value: trimmedNote,
+        normalized: normalizedNote,
+        count: 1,
+      })
+    })
+
+    return Array.from(noteCounts.values())
+  }, [allTransactions])
+
+  const noteSuggestions = useMemo(() => getSuggestedNotes(savedNoteOptions, note), [note, savedNoteOptions])
+  const editNoteSuggestions = useMemo(
+    () => getSuggestedNotes(savedNoteOptions, editingTransaction?.note || ''),
+    [editingTransaction?.note, savedNoteOptions]
+  )
 
   const submitAuth = async event => {
     event.preventDefault()
@@ -616,7 +760,9 @@ export default function Home() {
           <div className="card">
             <h2>Opening balance</h2>
             <strong>{formatMoney(summary.openingBalance)}</strong>
-            <span className="badge">{filterStartDate ? `Before ${new Date(filterStartDate).toLocaleDateString('en-IN')}` : 'All time'}</span>
+            <span className="badge">
+              {activeRange.startDate ? `Before ${formatFilterDate(activeRange.startDate)}` : 'All time'}
+            </span>
           </div>
 
           <div className="card">
@@ -705,6 +851,23 @@ export default function Home() {
                     value={note}
                     onChange={event => setNote(event.target.value)}
                   />
+                  {noteSuggestions.length > 0 && (
+                    <div className="note-suggestions" role="listbox" aria-label="Suggested notes">
+                      <span className="note-suggestions-label">Use a previous note</span>
+                      <div className="note-suggestion-list">
+                        {noteSuggestions.map(noteOption => (
+                          <button
+                            key={noteOption.normalized}
+                            type="button"
+                            className="note-suggestion-chip"
+                            onClick={() => setNote(noteOption.value)}
+                          >
+                            {noteOption.value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -725,52 +888,106 @@ export default function Home() {
           <div className="right-panel">
             <section className="card transactions-card">
               <div className="transactions-header">
-                <h2>Recent cash flow</h2>
-                <div className="filter-bar">
-                  <label className="filter-control" htmlFor="filter-start-date">
-                    <span>From</span>
-                    <input
-                      id="filter-start-date"
-                      type="date"
-                      value={filterStartDate}
-                      onChange={event => setFilterStartDate(event.target.value)}
-                    />
-                  </label>
+                <div>
+                  <h2>Recent cash flow</h2>
+                  <p className="filter-meta">
+                    {summary.transactionCount} transaction{summary.transactionCount === 1 ? '' : 's'} in {filterSummaryLabel}
+                  </p>
+                </div>
+                <div className="filter-toolbar">
+                  <div className="filter-preset-group" role="tablist" aria-label="Date range filters">
+                    {datePresetOptions.map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={filterDatePreset === option.value ? 'filter-pill active' : 'filter-pill'}
+                        onClick={() => setFilterDatePreset(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
 
-                  <label className="filter-control" htmlFor="filter-end-date">
-                    <span>To</span>
-                    <input
-                      id="filter-end-date"
-                      type="date"
-                      value={filterEndDate}
-                      onChange={event => setFilterEndDate(event.target.value)}
-                    />
-                  </label>
+                  <div className="filter-grid-modern">
+                    <label className="filter-control" htmlFor="filter-transaction-type">
+                      <span>Cashflow</span>
+                      <select
+                        id="filter-transaction-type"
+                        value={filterTransactionType}
+                        onChange={event => setFilterTransactionType(event.target.value)}
+                      >
+                        {typeFilterOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  <label className="filter-control filter-search" htmlFor="filter-note">
-                    <span>Remarks</span>
-                    <input
-                      id="filter-note"
-                      type="text"
-                      placeholder="Search notes"
-                      value={filterNote}
-                      onChange={event => setFilterNote(event.target.value)}
-                    />
-                  </label>
+                    <label className="filter-control" htmlFor="filter-member">
+                      <span>Member</span>
+                      <select
+                        id="filter-member"
+                        value={filterMemberName}
+                        onChange={event => setFilterMemberName(event.target.value)}
+                      >
+                        <option value="all">All members</option>
+                        {members.map(member => (
+                          <option key={member.name} value={member.name}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  {(filterStartDate || filterEndDate || filterNote) && (
-                    <button
-                      className="secondary compact-button"
-                      type="button"
-                      onClick={() => {
-                        setFilterStartDate('')
-                        setFilterEndDate('')
-                        setFilterNote('')
-                      }}
-                    >
-                      Clear
-                    </button>
-                  )}
+                    <label className="filter-control filter-search" htmlFor="filter-note">
+                      <span>Remarks</span>
+                      <input
+                        id="filter-note"
+                        type="text"
+                        placeholder="Search notes"
+                        value={filterNote}
+                        onChange={event => setFilterNote(event.target.value)}
+                      />
+                    </label>
+
+                    {filterDatePreset === 'custom' && (
+                      <>
+                        <label className="filter-control" htmlFor="filter-start-date">
+                          <span>From</span>
+                          <input
+                            id="filter-start-date"
+                            type="date"
+                            value={filterStartDate}
+                            onChange={event => setFilterStartDate(event.target.value)}
+                          />
+                        </label>
+
+                        <label className="filter-control" htmlFor="filter-end-date">
+                          <span>To</span>
+                          <input
+                            id="filter-end-date"
+                            type="date"
+                            value={filterEndDate}
+                            onChange={event => setFilterEndDate(event.target.value)}
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="filter-footer">
+                    <div className="filter-summary">
+                      <span className="badge">{filterSummaryLabel}</span>
+                      <span className="badge">{filterTransactionType === 'all' ? 'All cashflow' : filterTransactionType === 'in' ? 'Cash in only' : 'Cash out only'}</span>
+                      <span className="badge">{filterMemberName === 'all' ? 'All members' : filterMemberName}</span>
+                    </div>
+                    {activeFilterCount > 0 && (
+                      <button className="secondary compact-button" type="button" onClick={clearFilters}>
+                        Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -778,7 +995,7 @@ export default function Home() {
                 <p className="muted">Loading transactions...</p>
               ) : filteredTransactions.length === 0 ? (
                 <p className="muted">
-                  {filterStartDate || filterEndDate || filterNote
+                  {activeFilterCount > 0
                     ? 'No transactions matched the current filters.'
                     : 'No cash movements yet. Add cash in or cash out to get started.'}
                 </p>
@@ -878,6 +1095,23 @@ export default function Home() {
                   value={editingTransaction.note || ''}
                   onChange={event => setEditingTransaction({ ...editingTransaction, note: event.target.value })}
                 />
+                {editNoteSuggestions.length > 0 && (
+                  <div className="note-suggestions" role="listbox" aria-label="Suggested notes">
+                    <span className="note-suggestions-label">Use a previous note</span>
+                    <div className="note-suggestion-list">
+                      {editNoteSuggestions.map(noteOption => (
+                        <button
+                          key={noteOption.normalized}
+                          type="button"
+                          className="note-suggestion-chip"
+                          onClick={() => setEditingTransaction({ ...editingTransaction, note: noteOption.value })}
+                        >
+                          {noteOption.value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
