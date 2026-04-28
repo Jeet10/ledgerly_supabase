@@ -1033,10 +1033,11 @@ button.cash-out > * {
 
 .table-row span.action-cell {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-self: start;
 }
 
 .table-subtext {

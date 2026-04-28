@@ -1378,7 +1378,7 @@ export default function Home() {
                             Edit
                           </button>
                           <button className="danger" type="button" onClick={() => deleteTransaction(transaction.id)}>
-                            Archive
+                            Delete
                           </button>
                         </span>
                       </div>
