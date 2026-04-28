@@ -103,6 +103,94 @@ const getSuggestedNotes = (savedNotes, inputValue) => {
     .slice(0, 5)
 }
 
+const escapeHtml = value =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+
+const sanitizePdfText = value =>
+  String(value ?? '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replaceAll('\\', '\\\\')
+    .replaceAll('(', '\\(')
+    .replaceAll(')', '\\)')
+
+const triggerDownload = (content, fileName, mimeType) => {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+const buildSimplePdf = ({ title, subtitle, rows }) => {
+  const pageWidth = 595
+  const pageHeight = 842
+  const left = 40
+  const top = 46
+  const lineHeight = 16
+  const bottom = 50
+  const maxLinesPerPage = Math.floor((pageHeight - top - bottom) / lineHeight)
+  const lines = [title, subtitle, '', 'Type | Amount | Member | Date | Note', ...rows]
+  const pages = []
+
+  for (let index = 0; index < lines.length; index += maxLinesPerPage) {
+    pages.push(lines.slice(index, index + maxLinesPerPage))
+  }
+
+  const objects = []
+  const addObject = value => {
+    objects.push(value)
+    return objects.length
+  }
+
+  const fontObjectId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+  const contentObjectIds = []
+
+  pages.forEach(pageLines => {
+    const textCommands = pageLines
+      .map((line, lineIndex) => `1 0 0 1 ${left} ${pageHeight - top - lineIndex * lineHeight} Tm (${sanitizePdfText(line)}) Tj`)
+      .join('\n')
+    const stream = `BT\n/F1 10 Tf\n${textCommands}\nET`
+    const streamBytes = new TextEncoder().encode(stream).length
+    const contentId = addObject(`<< /Length ${streamBytes} >>\nstream\n${stream}\nendstream`)
+    contentObjectIds.push(contentId)
+  })
+
+  const pagesObjectId = objects.length + pages.length + 1
+  const pageObjectIds = contentObjectIds.map(contentId =>
+    addObject(
+      `<< /Type /Page /Parent ${pagesObjectId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentId} 0 R >>`
+    )
+  )
+  addObject(`<< /Type /Pages /Kids [${pageObjectIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`)
+  const catalogObjectId = addObject(`<< /Type /Catalog /Pages ${pagesObjectId} 0 R >>`)
+
+  let pdf = '%PDF-1.4\n'
+  const offsets = [0]
+
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  })
+
+  const xrefOffset = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n`
+  pdf += '0000000000 65535 f \n'
+  offsets.slice(1).forEach(offset => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+  })
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+
+  return pdf
+}
+
 const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
 const themeIcon = theme =>
   theme === 'dark' ? (
@@ -150,6 +238,7 @@ export default function Home() {
   const [filterNote, setFilterNote] = useState('')
   const [filterMemberName, setFilterMemberName] = useState('all')
   const [filterTransactionType, setFilterTransactionType] = useState('all')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   const [newMember, setNewMember] = useState('')
 
@@ -209,6 +298,12 @@ export default function Home() {
     if (members.some(member => member.name === filterMemberName)) return
     setFilterMemberName('all')
   }, [filterMemberName, members])
+
+  useEffect(() => {
+    if (filterDatePreset === 'custom' || filterNote.trim()) {
+      setShowAdvancedFilters(true)
+    }
+  }, [filterDatePreset, filterNote])
 
   const handleError = message => {
     setError(message)
@@ -340,6 +435,7 @@ export default function Home() {
     setFilterNote('')
     setFilterMemberName('all')
     setFilterTransactionType('all')
+    setShowAdvancedFilters(false)
   }
 
   const savedNoteOptions = useMemo(() => {
@@ -372,6 +468,92 @@ export default function Home() {
     () => getSuggestedNotes(savedNoteOptions, editingTransaction?.note || ''),
     [editingTransaction?.note, savedNoteOptions]
   )
+
+  const exportFileBaseName = useMemo(() => {
+    const dateSegment = filterDatePreset === 'custom' ? filterSummaryLabel.replaceAll(' ', '-').replaceAll('/', '-') : filterDatePreset
+    const memberSegment = filterMemberName === 'all' ? 'all-members' : filterMemberName.toLowerCase().replace(/\s+/g, '-')
+    const typeSegment = filterTransactionType === 'all' ? 'all-cashflow' : `cash-${filterTransactionType}`
+    return `growhigh-${dateSegment}-${memberSegment}-${typeSegment}`
+  }, [filterDatePreset, filterMemberName, filterSummaryLabel, filterTransactionType])
+
+  const exportRows = useMemo(
+    () =>
+      filteredTransactions.map(transaction => ({
+        type: transaction.type === 'in' ? 'Cash in' : 'Cash out',
+        amount: formatMoney(transaction.amount),
+        member: transaction.member_name || 'Unknown',
+        date: formatDate(transaction.transaction_date || transaction.created_at),
+        note: transaction.note || '-',
+      })),
+    [filteredTransactions]
+  )
+
+  const downloadFilteredExcel = () => {
+    if (exportRows.length === 0) {
+      handleError('No filtered transactions available to export.')
+      return
+    }
+
+    const tableRows = exportRows
+      .map(
+        row =>
+          `<tr><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.amount)}</td><td>${escapeHtml(row.member)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.note)}</td></tr>`
+      )
+      .join('')
+
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: Arial, sans-serif; padding: 24px; }
+      h1 { margin-bottom: 4px; }
+      p { color: #4b5563; }
+      table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+      th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; }
+      th { background: #eef2ff; }
+    </style>
+  </head>
+  <body>
+    <h1>GrowHigh Transactions</h1>
+    <p>Showing ${escapeHtml(String(summary.transactionCount))} transactions for ${escapeHtml(filterSummaryLabel)}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Member</th>
+          <th>Date</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+  </body>
+</html>`
+
+    triggerDownload(html, `${exportFileBaseName}.xls`, 'application/vnd.ms-excel;charset=utf-8;')
+  }
+
+  const downloadFilteredPdf = () => {
+    if (exportRows.length === 0) {
+      handleError('No filtered transactions available to export.')
+      return
+    }
+
+    const pdfRows = exportRows.map(row => {
+      const noteText = row.note.length > 34 ? `${row.note.slice(0, 31)}...` : row.note
+      return `${row.type.padEnd(8)} | ${row.amount.padEnd(12)} | ${row.member.padEnd(14)} | ${row.date.padEnd(20)} | ${noteText}`
+    })
+
+    const pdf = buildSimplePdf({
+      title: 'GrowHigh Transactions',
+      subtitle: `${summary.transactionCount} shown | ${filterSummaryLabel} | ${filterMemberName === 'all' ? 'All members' : filterMemberName}`,
+      rows: pdfRows,
+    })
+
+    triggerDownload(pdf, `${exportFileBaseName}.pdf`, 'application/pdf')
+  }
 
   const submitAuth = async event => {
     event.preventDefault()
@@ -890,9 +1072,7 @@ export default function Home() {
               <div className="transactions-header">
                 <div>
                   <h2>Recent cash flow</h2>
-                  <p className="filter-meta">
-                    {summary.transactionCount} transaction{summary.transactionCount === 1 ? '' : 's'} in {filterSummaryLabel}
-                  </p>
+                  <p className="filter-meta">Filtered transactions</p>
                 </div>
                 <div className="filter-toolbar">
                   <div className="filter-preset-group" role="tablist" aria-label="Date range filters">
@@ -939,55 +1119,103 @@ export default function Home() {
                         ))}
                       </select>
                     </label>
-
-                    <label className="filter-control filter-search" htmlFor="filter-note">
-                      <span>Remarks</span>
-                      <input
-                        id="filter-note"
-                        type="text"
-                        placeholder="Search notes"
-                        value={filterNote}
-                        onChange={event => setFilterNote(event.target.value)}
-                      />
-                    </label>
-
-                    {filterDatePreset === 'custom' && (
-                      <>
-                        <label className="filter-control" htmlFor="filter-start-date">
-                          <span>From</span>
-                          <input
-                            id="filter-start-date"
-                            type="date"
-                            value={filterStartDate}
-                            onChange={event => setFilterStartDate(event.target.value)}
-                          />
-                        </label>
-
-                        <label className="filter-control" htmlFor="filter-end-date">
-                          <span>To</span>
-                          <input
-                            id="filter-end-date"
-                            type="date"
-                            value={filterEndDate}
-                            onChange={event => setFilterEndDate(event.target.value)}
-                          />
-                        </label>
-                      </>
-                    )}
                   </div>
 
                   <div className="filter-footer">
                     <div className="filter-summary">
+                      <span className="badge">{summary.transactionCount} shown</span>
                       <span className="badge">{filterSummaryLabel}</span>
                       <span className="badge">{filterTransactionType === 'all' ? 'All cashflow' : filterTransactionType === 'in' ? 'Cash in only' : 'Cash out only'}</span>
                       <span className="badge">{filterMemberName === 'all' ? 'All members' : filterMemberName}</span>
                     </div>
-                    {activeFilterCount > 0 && (
-                      <button className="secondary compact-button" type="button" onClick={clearFilters}>
-                        Clear {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'}
+                    <div className="filter-actions">
+                      <button
+                        className={showAdvancedFilters ? 'secondary compact-button active-filter-toggle' : 'secondary compact-button'}
+                        type="button"
+                        onClick={() => setShowAdvancedFilters(currentValue => !currentValue)}
+                        aria-expanded={showAdvancedFilters}
+                      >
+                        {showAdvancedFilters ? 'Hide filters' : 'More filters'}
                       </button>
-                    )}
+                      <button
+                        className="export-icon-button excel-export"
+                        type="button"
+                        onClick={downloadFilteredExcel}
+                        aria-label="Download filtered transactions as Excel"
+                        title="Download Excel"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="m9 10 6 8M15 10l-6 8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                      <button
+                        className="export-icon-button pdf-export"
+                        type="button"
+                        onClick={downloadFilteredPdf}
+                        aria-label="Download filtered transactions as PDF"
+                        title="Download PDF"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M8.5 16.5h1.2c.9 0 1.5-.6 1.5-1.4s-.6-1.4-1.5-1.4H8.5Zm5.1 2v-4.8h1.2c1.3 0 2.2.9 2.2 2.4s-.9 2.4-2.2 2.4Zm-5.1 0v-1.2m0 0v1.2m4.3-4.8H12v4.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      {activeFilterCount > 0 && (
+                        <button className="secondary compact-button" type="button" onClick={clearFilters}>
+                          Clear {activeFilterCount}
+                        </button>
+                      )}
+                    </div>
                   </div>
+
+                  {showAdvancedFilters && (
+                    <div className="advanced-filters-panel">
+                      <div className="advanced-filters-grid">
+                        <label className="filter-control filter-search" htmlFor="filter-note">
+                          <span>Remarks</span>
+                          <input
+                            id="filter-note"
+                            type="text"
+                            placeholder="Search notes"
+                            value={filterNote}
+                            onChange={event => setFilterNote(event.target.value)}
+                          />
+                        </label>
+
+                        <div
+                          className={
+                            filterDatePreset === 'custom'
+                              ? 'filter-custom-dates active'
+                              : 'filter-custom-dates inactive'
+                          }
+                          aria-hidden={filterDatePreset !== 'custom'}
+                        >
+                          <label className="filter-control" htmlFor="filter-start-date">
+                            <span>From</span>
+                            <input
+                              id="filter-start-date"
+                              type="date"
+                              value={filterStartDate}
+                              onChange={event => setFilterStartDate(event.target.value)}
+                              disabled={filterDatePreset !== 'custom'}
+                            />
+                          </label>
+
+                          <label className="filter-control" htmlFor="filter-end-date">
+                            <span>To</span>
+                            <input
+                              id="filter-end-date"
+                              type="date"
+                              value={filterEndDate}
+                              onChange={event => setFilterEndDate(event.target.value)}
+                              disabled={filterDatePreset !== 'custom'}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

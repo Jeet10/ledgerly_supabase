@@ -1253,8 +1253,25 @@ footer {
 
 .filter-grid-modern {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.filter-custom-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  grid-column: 1 / -1;
+  min-height: 88px;
+  transition: opacity 0.18s ease;
+}
+
+.filter-custom-dates.inactive {
+  opacity: 0.48;
+}
+
+.filter-custom-dates.inactive input {
+  pointer-events: none;
 }
 
 .filter-control {
@@ -1268,21 +1285,95 @@ footer {
 }
 
 .filter-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .filter-summary {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .compact-button {
   white-space: nowrap;
+}
+
+.active-filter-toggle {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border)) !important;
+  color: var(--accent) !important;
+  background: color-mix(in srgb, var(--header-accent-bg) 88%, transparent) !important;
+}
+
+.advanced-filters-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.advanced-filters-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.export-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
+  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  color: var(--text);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.export-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.export-icon-button:hover {
+  transform: translateY(-1px);
+}
+
+.excel-export {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.excel-export:hover {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(34, 197, 94, 0.16);
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.18);
+}
+
+.pdf-export {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.pdf-export:hover {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.16);
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.18);
 }
 
 @media (min-width: 961px) {
@@ -1480,7 +1571,16 @@ footer {
 
   .filter-grid-modern {
     gap: 8px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-custom-dates {
+    gap: 8px;
+    min-height: 68px;
+  }
+
+  .advanced-filters-grid {
+    gap: 8px;
   }
 
   .filter-control {
@@ -1495,8 +1595,23 @@ footer {
     gap: 6px;
   }
 
+  .filter-actions {
+    gap: 6px;
+  }
+
   .compact-button {
     padding: 8px 10px;
+  }
+
+  .export-icon-button {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  .export-icon-button svg {
+    width: 16px;
+    height: 16px;
   }
 
   .table-wrapper {
@@ -1615,20 +1730,38 @@ footer {
     grid-template-columns: 1fr;
   }
 
+  .advanced-filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-custom-dates {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
   .filter-toolbar {
     padding: 14px;
     border-radius: 16px;
   }
 
   .filter-preset-group,
-  .filter-footer,
   .filter-summary {
     display: flex;
     flex-wrap: wrap;
   }
 
   .filter-footer {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .filter-footer {
     align-items: stretch;
+  }
+
+  .filter-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
   }
 
   .card {
