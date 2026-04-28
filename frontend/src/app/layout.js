@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'GrowHigh',
-  description: 'GrowHigh helps organizations track cash movement, balances, and member activity.',
+  title: 'GrowwHigh',
+  description: 'GrowwHigh helps organizations track cash movement, balances, and member activity.',
 }
 
 export default function RootLayout({ children }) {

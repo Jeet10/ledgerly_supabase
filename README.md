@@ -47,7 +47,9 @@ create table if not exists transactions (
   type text not null check (type in ('in', 'out')),
   note text,
   transaction_date timestamp with time zone not null default now(),
-  created_at timestamp with time zone default now()
+  created_at timestamp with time zone default now(),
+  deleted_at timestamp with time zone,
+  delete_scheduled_for timestamp with time zone
 );
 ```
 
@@ -159,3 +161,15 @@ Open http://localhost:3000
 - Members belong to an organization and are stored as names only
 - Each transaction stores the chosen member name directly
 - Each signed-in user only sees that user's own members and transactions
+- Deleting a transaction now moves it into deleted history for 30 days, where it can still be restored
+
+## Transaction delete history
+
+Run the migration in `supabase/migrations/20260429_soft_delete_transactions.sql` to enable:
+
+- Soft-delete fields on `transactions`
+- Restore support from the app UI
+- Restore activity logging so restored transactions remain traceable
+- Automatic permanent cleanup for archived transactions after 30 days
+
+If your Supabase project does not support `pg_cron`, keep the schema changes and run `select public.purge_expired_deleted_transactions();` from a scheduled job outside Supabase.

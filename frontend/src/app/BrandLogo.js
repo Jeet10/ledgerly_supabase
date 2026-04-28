@@ -44,7 +44,7 @@ export default function BrandLogo({ compact = false, className = '' }) {
         </svg>
       </span>
       <span className="brand-logo-copy">
-        <span className="brand-logo-name">GrowHigh</span>
+        <span className="brand-logo-name">GrowwHigh</span>
         {!compact && <span className="brand-logo-tagline">Cashflow that climbs with your business</span>}
       </span>
     </div>

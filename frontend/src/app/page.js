@@ -18,6 +18,33 @@ const formatDate = value => {
   return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+const formatRelativeDeletionWindow = value => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Auto-delete scheduled'
+
+  const diffMs = date.getTime() - Date.now()
+  if (diffMs <= 0) return 'Auto-delete due'
+
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  return daysLeft === 1 ? 'Auto-deletes in 1 day' : `Auto-deletes in ${daysLeft} days`
+}
+
+const formatRelativeRestoreWindow = value => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Recently restored'
+
+  const diffMs = Date.now() - date.getTime()
+  const minutes = Math.floor(diffMs / (1000 * 60))
+  if (minutes < 1) return 'Restored just now'
+  if (minutes < 60) return `Restored ${minutes} min ago`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `Restored ${hours} hr${hours === 1 ? '' : 's'} ago`
+
+  const days = Math.floor(hours / 24)
+  return `Restored ${days} day${days === 1 ? '' : 's'} ago`
+}
+
 const formatFilterDate = value => {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -192,6 +219,11 @@ const buildSimplePdf = ({ title, subtitle, rows }) => {
 }
 
 const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
+const normalizeTransaction = transaction => ({
+  ...transaction,
+  amount: Number(transaction.amount || 0),
+})
+
 const themeIcon = theme =>
   theme === 'dark' ? (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -223,10 +255,13 @@ export default function Home() {
   const [error, setError] = useState('')
 
   const [allTransactions, setAllTransactions] = useState([])
+  const [deletedTransactions, setDeletedTransactions] = useState([])
+  const [restoreEvents, setRestoreEvents] = useState([])
   const [members, setMembers] = useState([])
   const [selectedMemberName, setSelectedMemberName] = useState('')
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [showMembersModal, setShowMembersModal] = useState(false)
+  const [showDeletedHistoryModal, setShowDeletedHistoryModal] = useState(false)
 
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -284,6 +319,8 @@ export default function Home() {
   useEffect(() => {
     if (!session?.user?.id) {
       setAllTransactions([])
+      setDeletedTransactions([])
+      setRestoreEvents([])
       setMembers([])
       setSelectedMemberName('')
       return
@@ -306,15 +343,16 @@ export default function Home() {
 
   const loadWorkspace = async userId => {
     setLoading(true)
-    await Promise.all([loadTransactions(userId), loadMembers(userId)])
+    await Promise.all([loadTransactions(userId), loadDeletedTransactions(userId), loadRestoreEvents(userId), loadMembers(userId)])
     setLoading(false)
   }
 
   const loadTransactions = async userId => {
     const { data, error: queryError } = await supabase
       .from('transactions')
-      .select('id,amount,type,note,transaction_date,created_at,member_name')
+      .select('id,amount,type,note,transaction_date,created_at,member_name,deleted_at,delete_scheduled_for,last_restored_at,last_restored_by_email')
       .eq('owner_id', userId)
+      .is('deleted_at', null)
       .order('transaction_date', { ascending: false })
 
     if (queryError) {
@@ -323,12 +361,41 @@ export default function Home() {
       return
     }
 
-    setAllTransactions(
-      (data || []).map(transaction => ({
-        ...transaction,
-        amount: Number(transaction.amount || 0),
-      }))
-    )
+    setAllTransactions((data || []).map(normalizeTransaction))
+  }
+
+  const loadDeletedTransactions = async userId => {
+    const { data, error: queryError } = await supabase
+      .from('transactions')
+      .select('id,amount,type,note,transaction_date,created_at,member_name,deleted_at,delete_scheduled_for,last_restored_at,last_restored_by_email')
+      .eq('owner_id', userId)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false })
+
+    if (queryError) {
+      handleError('Unable to load deleted transaction history. Run the latest transaction archive SQL first.')
+      setDeletedTransactions([])
+      return
+    }
+
+    setDeletedTransactions((data || []).map(normalizeTransaction))
+  }
+
+  const loadRestoreEvents = async userId => {
+    const { data, error: queryError } = await supabase
+      .from('transaction_restore_events')
+      .select('id,transaction_id,restored_at,restored_by_email,deleted_at,original_transaction_date,note,member_name,amount,type')
+      .eq('owner_id', userId)
+      .order('restored_at', { ascending: false })
+      .limit(12)
+
+    if (queryError) {
+      handleError('Unable to load restore activity. Run the latest transaction archive SQL first.')
+      setRestoreEvents([])
+      return
+    }
+
+    setRestoreEvents((data || []).map(normalizeTransaction))
   }
 
   const loadMembers = async userId => {
@@ -507,7 +574,7 @@ export default function Home() {
     </style>
   </head>
   <body>
-    <h1>GrowHigh Transactions</h1>
+    <h1>GrowwHigh Transactions</h1>
     <p>Showing ${escapeHtml(String(summary.transactionCount))} transactions for ${escapeHtml(filterSummaryLabel)}</p>
     <table>
       <thead>
@@ -539,7 +606,7 @@ export default function Home() {
     })
 
     const pdf = buildSimplePdf({
-      title: 'GrowHigh Transactions',
+      title: 'GrowwHigh Transactions',
       subtitle: `${summary.transactionCount} shown | ${filterSummaryLabel} | ${filterMemberName === 'all' ? 'All members' : filterMemberName}`,
       rows: pdfRows,
     })
@@ -649,7 +716,7 @@ export default function Home() {
     }
 
     if (linkedTransactions?.length) {
-      handleError(`Cannot delete "${memberName}" because the member has transactions.`)
+      handleError(`Cannot delete "${memberName}" because the member has transaction history.`)
       return
     }
 
@@ -710,22 +777,78 @@ export default function Home() {
   const deleteTransaction = async transactionId => {
     if (!session?.user?.id) return
 
-    if (!window.confirm('Are you sure you want to delete this transaction?')) {
+    if (!window.confirm('Move this transaction to deleted history? It can be restored for 30 days before auto-delete.')) {
       return
     }
 
+    const deleteScheduledFor = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
     const { error: deleteError } = await supabase
       .from('transactions')
-      .delete()
+      .update({
+        deleted_at: new Date().toISOString(),
+        delete_scheduled_for: deleteScheduledFor,
+      })
       .eq('owner_id', session.user.id)
       .eq('id', transactionId)
 
     if (deleteError) {
-      handleError(deleteError.message || 'Unable to delete transaction.')
+      handleError(deleteError.message || 'Unable to move transaction to deleted history.')
       return
     }
 
-    await loadTransactions(session.user.id)
+    await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id)])
+  }
+
+  const restoreTransaction = async transactionId => {
+    if (!session?.user?.id) return
+
+    const transactionToRestore = deletedTransactions.find(transaction => transaction.id === transactionId)
+    if (!transactionToRestore) {
+      handleError('That deleted transaction could not be found.')
+      return
+    }
+
+    if (!window.confirm('Restore this transaction back into the main ledger? This action will be logged in restore activity.')) {
+      return
+    }
+
+    const restorePayload = {
+      transaction_id: transactionToRestore.id,
+      owner_id: session.user.id,
+      restored_by_email: session.user.email || '',
+      deleted_at: transactionToRestore.deleted_at,
+      original_transaction_date: transactionToRestore.transaction_date,
+      note: transactionToRestore.note || '',
+      member_name: transactionToRestore.member_name || '',
+      amount: transactionToRestore.amount,
+      type: transactionToRestore.type,
+    }
+
+    const { error: logError } = await supabase.from('transaction_restore_events').insert([restorePayload])
+
+    if (logError) {
+      handleError(logError.message || 'Unable to log restore activity.')
+      return
+    }
+
+    const { error: restoreError } = await supabase
+      .from('transactions')
+      .update({
+        deleted_at: null,
+        delete_scheduled_for: null,
+        last_restored_at: new Date().toISOString(),
+        last_restored_by_email: session.user.email || '',
+      })
+      .eq('owner_id', session.user.id)
+      .eq('id', transactionId)
+
+    if (restoreError) {
+      handleError(restoreError.message || 'Unable to restore transaction.')
+      return
+    }
+
+    await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id), loadRestoreEvents(session.user.id)])
   }
 
   const updateTransaction = async () => {
@@ -923,6 +1046,9 @@ export default function Home() {
               <button className="secondary" onClick={() => setShowMembersModal(true)}>
                 Manage members
               </button>
+              <button className="secondary" onClick={() => setShowDeletedHistoryModal(true)}>
+                Deleted history {deletedTransactions.length > 0 ? `(${deletedTransactions.length})` : ''}
+              </button>
               <button className="secondary" onClick={signOut}>
                 Sign out
               </button>
@@ -1072,6 +1198,13 @@ export default function Home() {
                       </div>
                     </div>
                     <div className="filter-actions">
+                      <button
+                        className="secondary compact-button"
+                        type="button"
+                        onClick={() => setShowDeletedHistoryModal(true)}
+                      >
+                        Deleted history
+                      </button>
                       <button
                         className="export-icon-button excel-export"
                         type="button"
@@ -1229,7 +1362,15 @@ export default function Home() {
                           </span>
                         </span>
                         <span>{formatMoney(transaction.amount)}</span>
-                        <span>{transaction.note || '-'}</span>
+                        <span>
+                          {transaction.note || '-'}
+                          {transaction.last_restored_at && (
+                            <small className="table-subtext">
+                              {formatRelativeRestoreWindow(transaction.last_restored_at)}
+                              {transaction.last_restored_by_email ? ` by ${transaction.last_restored_by_email}` : ''}
+                            </small>
+                          )}
+                        </span>
                         <span>{transaction.member_name || 'Unknown'}</span>
                         <span>{transaction.transaction_date ? formatDate(transaction.transaction_date) : formatDate(transaction.created_at)}</span>
                         <span className="action-cell">
@@ -1237,7 +1378,7 @@ export default function Home() {
                             Edit
                           </button>
                           <button className="danger" type="button" onClick={() => deleteTransaction(transaction.id)}>
-                            Delete
+                            Archive
                           </button>
                         </span>
                       </div>
@@ -1409,6 +1550,89 @@ export default function Home() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {showDeletedHistoryModal && (
+          <div className="modal-overlay">
+            <div className="edit-modal card deleted-history-modal">
+              <div className="modal-header">
+                <div>
+                  <h2>Deleted transaction history</h2>
+                  <p className="muted modal-copy">Archived transactions stay here for 30 days and can be restored before automatic removal.</p>
+                </div>
+                <button className="secondary" type="button" onClick={() => setShowDeletedHistoryModal(false)}>
+                  Close
+                </button>
+              </div>
+
+              {deletedTransactions.length === 0 ? (
+                <p className="muted">No deleted transactions right now.</p>
+              ) : (
+                <div className="table-wrapper deleted-history-table">
+                  <div className="table-head">
+                    <span>Type</span>
+                    <span>Amount</span>
+                    <span>Note</span>
+                    <span>Member</span>
+                    <span>Deleted</span>
+                    <span>Actions</span>
+                  </div>
+                  <div className="table-body">
+                    {deletedTransactions.map(transaction => (
+                      <div key={transaction.id} className="table-row">
+                        <span>
+                          <span className={`tag ${transaction.type === 'in' ? 'credit' : 'debit'}`}>
+                            {transaction.type === 'in' ? 'Cash in' : 'Cash out'}
+                          </span>
+                        </span>
+                        <span>{formatMoney(transaction.amount)}</span>
+                        <span>{transaction.note || '-'}</span>
+                        <span>{transaction.member_name || 'Unknown'}</span>
+                        <span>
+                          <strong>{formatDate(transaction.deleted_at)}</strong>
+                          <small className="table-subtext">{formatRelativeDeletionWindow(transaction.delete_scheduled_for)}</small>
+                        </span>
+                        <span className="action-cell">
+                          <button className="primary" type="button" onClick={() => restoreTransaction(transaction.id)}>
+                            Restore
+                          </button>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="restore-activity-panel">
+                <div className="restore-activity-header">
+                  <h3>Recent restore activity</h3>
+                  <span className="badge">{restoreEvents.length} tracked</span>
+                </div>
+
+                {restoreEvents.length === 0 ? (
+                  <p className="muted">No restore actions have been recorded yet.</p>
+                ) : (
+                  <div className="restore-activity-list">
+                    {restoreEvents.map(event => (
+                      <div key={event.id} className="restore-activity-item">
+                        <div>
+                          <strong>{formatMoney(event.amount)} {event.type === 'in' ? 'Cash in' : 'Cash out'}</strong>
+                          <p>
+                            {event.member_name || 'Unknown'}{event.note ? ` • ${event.note}` : ''}
+                          </p>
+                        </div>
+                        <div className="restore-activity-meta">
+                          <strong>{formatDate(event.restored_at)}</strong>
+                          <small>{event.restored_by_email || 'Current user'}</small>
+                          {event.deleted_at && <small>Was deleted on {formatDate(event.deleted_at)}</small>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
