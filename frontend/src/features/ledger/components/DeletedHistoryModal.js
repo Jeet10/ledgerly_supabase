@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { formatDate, formatMoney, formatRelativeDeletionWindow } from '../utils/ledgerUtils'
 
 export default function DeletedHistoryModal({
@@ -14,6 +15,31 @@ export default function DeletedHistoryModal({
   restoreTransaction,
   restoreEvents,
 }) {
+  const [restoreLogFilter, setRestoreLogFilter] = useState('')
+
+  const filteredRestoreEvents = useMemo(() => {
+    if (!restoreLogFilter.trim()) return restoreEvents
+
+    const searchTerm = restoreLogFilter.toLowerCase().trim()
+    return restoreEvents.filter(event => {
+      const memberName = (event.member_name || '').toLowerCase()
+      const note = (event.note || '').toLowerCase()
+      const type = (event.type || '').toLowerCase()
+      const amount = String(event.amount || '')
+      const restoredByEmail = (event.restored_by_email || '').toLowerCase()
+      const formattedDate = formatDate(event.restored_at).toLowerCase()
+
+      return (
+        memberName.includes(searchTerm) ||
+        note.includes(searchTerm) ||
+        type.includes(searchTerm) ||
+        amount.includes(searchTerm) ||
+        restoredByEmail.includes(searchTerm) ||
+        formattedDate.includes(searchTerm)
+      )
+    })
+  }, [restoreEvents, restoreLogFilter])
+
   if (!show) return null
 
   return (
@@ -106,11 +132,35 @@ export default function DeletedHistoryModal({
             <span className="badge">{restoreEvents.length} tracked</span>
           </div>
 
+          {restoreEvents.length > 0 && (
+            <div className="restore-log-search">
+              <input
+                type="text"
+                placeholder="Search logs by member, note, amount, date..."
+                value={restoreLogFilter}
+                onChange={event => setRestoreLogFilter(event.target.value)}
+                aria-label="Search restore activity logs"
+              />
+              {restoreLogFilter && (
+                <button
+                  className="restore-log-clear-btn"
+                  type="button"
+                  onClick={() => setRestoreLogFilter('')}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+
           {restoreEvents.length === 0 ? (
             <p className="muted">No restore actions have been recorded yet.</p>
+          ) : filteredRestoreEvents.length === 0 ? (
+            <p className="muted">No restore logs match your search.</p>
           ) : (
             <div className="restore-activity-list">
-              {restoreEvents.map(event => (
+              {filteredRestoreEvents.map(event => (
                 <div key={event.id} className="restore-activity-item">
                   <div>
                     <strong>

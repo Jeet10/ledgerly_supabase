@@ -1355,9 +1355,57 @@ button.cash-out:active {
   font-size: 1rem;
 }
 
+.restore-log-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.restore-log-search input {
+  width: 100%;
+  padding-right: 40px;
+  font-size: 0.9rem;
+}
+
+.restore-log-clear-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.restore-log-clear-btn:hover {
+  color: var(--text);
+}
+
 .restore-activity-list {
   display: grid;
   gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.restore-activity-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.restore-activity-list::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 100px;
+}
+
+.restore-activity-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .restore-activity-item {
