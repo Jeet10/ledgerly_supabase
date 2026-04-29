@@ -905,6 +905,42 @@ button.cash-out > * {
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+.entry-card {
+  overflow: hidden;
+  contain: paint;
+}
+
+/* Prevent subtle cross-panel compositing seam from left-panel hover/focus effects */
+.entry-card .name-pill:hover,
+.entry-card button.cash-in:hover,
+.entry-card button.cash-out:hover {
+  transform: none;
+}
+
+.entry-card textarea:hover,
+.entry-card textarea:focus {
+  transform: none;
+}
+
+/* Left panel controls should not trigger global backdrop compositing artifacts */
+.entry-card input,
+.entry-card select,
+.entry-card textarea,
+.entry-card button {
+  backdrop-filter: none;
+}
+
+.entry-card input:focus,
+.entry-card select:focus,
+.entry-card textarea:focus,
+.entry-card .name-pill:hover,
+.entry-card button.cash-in:hover,
+.entry-card button.cash-out:hover {
+  box-shadow: none;
 }
 
 .transactions-card {
@@ -913,6 +949,26 @@ button.cash-out > * {
   min-height: 0;
   flex: 1;
   overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background: var(--surface-card);
+  backdrop-filter: none;
+}
+
+.entry-card {
+  backdrop-filter: none;
+}
+
+.transaction-table,
+.transaction-table .table-head,
+.transaction-table .table-body,
+.transaction-table .table-row {
+  position: relative;
+  isolation: isolate;
+}
+
+.transaction-table .table-body {
+  background: var(--surface-card);
 }
 
 .names-modal {
@@ -1128,11 +1184,11 @@ button.cash-out > * {
 }
 
 .table-row:nth-child(odd) {
-  background: var(--surface-row-alt);
+  background: color-mix(in srgb, var(--surface-card) 96%, var(--surface));
 }
 
 .table-row:hover {
-  background: var(--surface-row-hover);
+  background: color-mix(in srgb, var(--surface-card) 88%, var(--surface-strong));
 }
 
 .table-row span.action-cell {
@@ -1391,15 +1447,13 @@ footer {
 
 .filter-toolbar {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   flex: 1;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-card) 96%, white), transparent),
-    color-mix(in srgb, var(--surface-soft) 72%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 94%, #ffffff 6%);
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 98%, white 2%), color-mix(in srgb, var(--surface-card) 94%, var(--surface-strong)));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 20px rgba(2, 6, 23, 0.2);
 }
 
 .filter-toolbar-top {
@@ -1416,10 +1470,10 @@ footer {
 }
 
 .filter-kicker {
-  color: var(--muted);
-  font-size: 0.7rem;
+  color: color-mix(in srgb, var(--muted) 84%, var(--text));
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -1437,9 +1491,9 @@ footer {
 }
 
 .filter-pill {
-  border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
-  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
-  color: var(--muted);
+  border: 1px solid color-mix(in srgb, var(--border) 90%, #ffffff 10%);
+  background: color-mix(in srgb, var(--surface-card) 96%, var(--surface-strong));
+  color: color-mix(in srgb, var(--muted) 88%, var(--text));
   padding: 8px 12px;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -1450,15 +1504,16 @@ footer {
 
 .filter-pill:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--surface-card) 92%, var(--surface-strong));
   color: var(--text);
 }
 
 .filter-pill.active {
-  border-color: color-mix(in srgb, var(--accent) 75%, white);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), color-mix(in srgb, var(--accent-strong) 14%, transparent));
-  color: var(--accent);
-  box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, var(--surface-card)), color-mix(in srgb, var(--accent-strong) 14%, var(--surface-card)));
+  color: color-mix(in srgb, var(--accent) 72%, white);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .filter-grid-modern {
@@ -1479,8 +1534,9 @@ footer {
 }
 
 .filter-control span {
-  color: var(--muted);
+  color: color-mix(in srgb, var(--muted) 88%, var(--text));
   font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .filter-footer {
@@ -1530,9 +1586,10 @@ footer {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 95%, transparent);
-  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, #ffffff 12%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 98%, white 2%), color-mix(in srgb, var(--surface-card) 93%, var(--surface-strong)));
   color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 6px 14px rgba(2, 6, 23, 0.22);
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -1543,30 +1600,32 @@ footer {
 
 .export-icon-button:hover {
   transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 20px rgba(2, 6, 23, 0.26);
 }
 
 .excel-export {
   color: #22c55e;
-  border-color: rgba(34, 197, 94, 0.28);
-  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.36);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.16), rgba(34, 197, 94, 0.1));
 }
 
 .excel-export:hover {
-  border-color: rgba(34, 197, 94, 0.5);
-  background: rgba(34, 197, 94, 0.16);
-  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.58);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.22), rgba(34, 197, 94, 0.14));
+  box-shadow: 0 12px 26px rgba(34, 197, 94, 0.24);
 }
 
 .pdf-export {
   color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.28);
-  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.36);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.16), rgba(239, 68, 68, 0.1));
 }
 
 .pdf-export:hover {
-  border-color: rgba(239, 68, 68, 0.5);
-  background: rgba(239, 68, 68, 0.16);
-  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.58);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.22), rgba(239, 68, 68, 0.14));
+  box-shadow: 0 12px 26px rgba(239, 68, 68, 0.24);
 }
 
 @media (min-width: 961px) {
