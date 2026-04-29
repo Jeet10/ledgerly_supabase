@@ -712,78 +712,200 @@ button.danger:hover {
   box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
 }
 
-button.cash-in {
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.1));
-  color: var(--success);
-  padding: 14px 20px;
-  border-radius: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  position: relative;
-  overflow: hidden;
-  flex: 1;
-}
-
-button.cash-in::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--success), #16a34a);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-button.cash-in:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.3);
-}
-
-button.cash-in:hover::before {
-  opacity: 1;
-}
-
-button.cash-in > * {
-  position: relative;
-  z-index: 1;
-}
-
+/* ========================= */
+/* BASE */
+/* ========================= */
+button.cash-in,
 button.cash-out {
-  border: 1px solid rgba(249, 115, 22, 0.3);
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(234, 88, 12, 0.1));
-  color: var(--danger);
-  padding: 14px 20px;
-  border-radius: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
   position: relative;
-  overflow: hidden;
+  padding: 14px 20px;
+  border-radius: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
   flex: 1;
+  border: 1px solid transparent;
+  overflow: hidden;
 }
 
+/* ========================= */
+/* 💚 CASH IN */
+/* ========================= */
+button.cash-in {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+/* ========================= */
+/* 🔥 CASH OUT */
+/* ========================= */
+button.cash-out {
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.08);
+  border-color: rgba(249, 115, 22, 0.25);
+}
+
+/* ========================= */
+/* ✨ SHIMMER (GLASS SWEEP) */
+/* ========================= */
+button.cash-in::before,
 button.cash-out::before {
-  content: '';
+  content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--danger), #ea580c);
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.25),
+    transparent
+  );
+  transform: skewX(-20deg);
+}
+
+/* ========================= */
+/* 🌊 BREATHING GLOW */
+/* ========================= */
+@keyframes glowGreen {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(34,197,94,0.4),
+      0 0 8px rgba(34,197,94,0.5),
+      0 0 18px rgba(34,197,94,0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(34,197,94,0.6),
+      0 0 16px rgba(34,197,94,0.8),
+      0 0 35px rgba(34,197,94,0.5);
+  }
+}
+
+@keyframes glowOrange {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(249,115,22,0.4),
+      0 0 8px rgba(249,115,22,0.5),
+      0 0 18px rgba(249,115,22,0.3);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(249,115,22,0.6),
+      0 0 16px rgba(249,115,22,0.8),
+      0 0 35px rgba(249,115,22,0.5);
+  }
+}
+
+/* ========================= */
+/* 🚀 HOVER STATE */
+/* ========================= */
+button.cash-in:hover {
+  transform: translateY(-3px);
+  color: #dcfce7;
+  border-color: rgba(34,197,94,0.7);
+
+  animation: glowGreen 1.2s ease-in-out infinite alternate;
 }
 
 button.cash-out:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.3);
+  transform: translateY(-3px);
+  color: #fff7ed;
+  border-color: rgba(249,115,22,0.7);
+
+  animation: glowOrange 1.2s ease-in-out infinite alternate;
 }
 
+/* SHIMMER TRIGGER */
+button.cash-in:hover::before,
 button.cash-out:hover::before {
-  opacity: 1;
+  animation: shimmer 1.2s ease forwards;
 }
 
-button.cash-out > * {
-  position: relative;
-  z-index: 1;
+@keyframes shimmer {
+  0% { left: -120%; }
+  100% { left: 140%; }
+}
+
+/* ========================= */
+/* ⚡ CLICK */
+/* ========================= */
+button.cash-in:active,
+button.cash-out:active {
+  transform: translateY(0) scale(0.96);
+  animation: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* ========================= */
+/* 🌞 LIGHT MODE FIX */
+/* ========================= */
+:root[data-theme='light'] button.cash-in {
+  color: #15803d;
+  background: rgba(22, 128, 60, 0.06);
+  border-color: rgba(22, 128, 60, 0.25);
+}
+
+:root[data-theme='light'] button.cash-out {
+  color: #c2410c;
+  background: rgba(217, 72, 15, 0.06);
+  border-color: rgba(217, 72, 15, 0.25);
+}
+
+/* ========================= */
+/* 🌊 LIGHT MODE GLOW (LESS HARSH) */
+/* ========================= */
+@keyframes glowGreenLight {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(22,128,60,0.25),
+      0 4px 12px rgba(22,128,60,0.15);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(22,128,60,0.4),
+      0 6px 18px rgba(22,128,60,0.25);
+  }
+}
+
+@keyframes glowOrangeLight {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(217,72,15,0.25),
+      0 4px 12px rgba(217,72,15,0.15);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(217,72,15,0.4),
+      0 6px 18px rgba(217,72,15,0.25);
+  }
+}
+
+/* ========================= */
+/* 🚀 HOVER (LIGHT MODE) */
+/* ========================= */
+:root[data-theme='light'] button.cash-in:hover {
+  color: #14532d;
+  border-color: rgba(22,128,60,0.5);
+  animation: glowGreenLight 1.2s ease-in-out infinite alternate;
+}
+
+:root[data-theme='light'] button.cash-out:hover {
+  color: #7c2d12;
+  border-color: rgba(217,72,15,0.5);
+  animation: glowOrangeLight 1.2s ease-in-out infinite alternate;
+}
+:root[data-theme='light'] button.cash-in::before,
+:root[data-theme='light'] button.cash-out::before {
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(255,255,255,0.6),
+    transparent
+  );
 }
 
 .button-group {
