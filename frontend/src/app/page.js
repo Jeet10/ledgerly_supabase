@@ -3,243 +3,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import BrandLogo from './BrandLogo'
 import { supabase } from '../lib/supabaseClient'
-
-const currencyFormatter = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 2,
-})
-
-const formatMoney = value => currencyFormatter.format(Number(value) || 0)
-
-const formatDate = value => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Not set'
-  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-const formatRelativeDeletionWindow = value => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Auto-delete scheduled'
-
-  const diffMs = date.getTime() - Date.now()
-  if (diffMs <= 0) return 'Auto-delete due'
-
-  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  return daysLeft === 1 ? 'Auto-deletes in 1 day' : `Auto-deletes in ${daysLeft} days`
-}
-
-const formatRelativeRestoreWindow = value => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Recently restored'
-
-  const diffMs = Date.now() - date.getTime()
-  const minutes = Math.floor(diffMs / (1000 * 60))
-  if (minutes < 1) return 'Restored just now'
-  if (minutes < 60) return `Restored ${minutes} min ago`
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `Restored ${hours} hr${hours === 1 ? '' : 's'} ago`
-
-  const days = Math.floor(hours / 24)
-  return `Restored ${days} day${days === 1 ? '' : 's'} ago`
-}
-
-const formatFilterDate = value => {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-}
-
-const toDateTimeLocalValue = value => {
-  const date = value ? new Date(value) : new Date()
-  if (Number.isNaN(date.getTime())) return ''
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return localDate.toISOString().slice(0, 16)
-}
-
-const getDatePresetRange = (preset, customStartDate, customEndDate) => {
-  const now = new Date()
-  const startOfToday = new Date(now)
-  startOfToday.setHours(0, 0, 0, 0)
-
-  const endOfToday = new Date(now)
-  endOfToday.setHours(23, 59, 59, 999)
-
-  if (preset === 'today') {
-    return { startDate: startOfToday, endDate: endOfToday }
-  }
-
-  if (preset === 'yesterday') {
-    const startDate = new Date(startOfToday)
-    startDate.setDate(startDate.getDate() - 1)
-
-    const endDate = new Date(endOfToday)
-    endDate.setDate(endDate.getDate() - 1)
-
-    return { startDate, endDate }
-  }
-
-  if (preset === 'month') {
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
-    startDate.setHours(0, 0, 0, 0)
-    return { startDate, endDate: endOfToday }
-  }
-
-  if (preset === 'custom') {
-    const startDate = customStartDate ? new Date(customStartDate) : null
-    const endDate = customEndDate ? new Date(customEndDate) : null
-
-    if (startDate) startDate.setHours(0, 0, 0, 0)
-    if (endDate) endDate.setHours(23, 59, 59, 999)
-
-    return { startDate, endDate }
-  }
-
-  return { startDate: null, endDate: null }
-}
-
-const datePresetOptions = [
-  { value: 'all', label: 'All' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'today', label: 'Today' },
-  { value: 'month', label: 'This Month' },
-  { value: 'custom', label: 'Custom' },
-]
-
-const typeFilterOptions = [
-  { value: 'all', label: 'All cashflow' },
-  { value: 'in', label: 'Cash in' },
-  { value: 'out', label: 'Cash out' },
-]
-
-const getSuggestedNotes = (savedNotes, inputValue) => {
-  const normalizedInput = inputValue.trim().toLowerCase()
-  if (!normalizedInput) return []
-
-  return savedNotes
-    .filter(noteOption => noteOption.normalized !== normalizedInput && noteOption.normalized.includes(normalizedInput))
-    .sort((firstNote, secondNote) => {
-      const firstStartsWith = firstNote.normalized.startsWith(normalizedInput)
-      const secondStartsWith = secondNote.normalized.startsWith(normalizedInput)
-
-      if (firstStartsWith !== secondStartsWith) return firstStartsWith ? -1 : 1
-      if (secondNote.count !== firstNote.count) return secondNote.count - firstNote.count
-      return firstNote.value.localeCompare(secondNote.value)
-    })
-    .slice(0, 5)
-}
-
-const escapeHtml = value =>
-  String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-
-const sanitizePdfText = value =>
-  String(value ?? '')
-    .replace(/[^\x20-\x7E]/g, ' ')
-    .replaceAll('\\', '\\\\')
-    .replaceAll('(', '\\(')
-    .replaceAll(')', '\\)')
-
-const triggerDownload = (content, fileName, mimeType) => {
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-const buildSimplePdf = ({ title, subtitle, rows }) => {
-  const pageWidth = 595
-  const pageHeight = 842
-  const left = 40
-  const top = 46
-  const lineHeight = 16
-  const bottom = 50
-  const maxLinesPerPage = Math.floor((pageHeight - top - bottom) / lineHeight)
-  const lines = [title, subtitle, '', 'Type | Amount | Member | Date | Note', ...rows]
-  const pages = []
-
-  for (let index = 0; index < lines.length; index += maxLinesPerPage) {
-    pages.push(lines.slice(index, index + maxLinesPerPage))
-  }
-
-  const objects = []
-  const addObject = value => {
-    objects.push(value)
-    return objects.length
-  }
-
-  const fontObjectId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
-  const contentObjectIds = []
-
-  pages.forEach(pageLines => {
-    const textCommands = pageLines
-      .map((line, lineIndex) => `1 0 0 1 ${left} ${pageHeight - top - lineIndex * lineHeight} Tm (${sanitizePdfText(line)}) Tj`)
-      .join('\n')
-    const stream = `BT\n/F1 10 Tf\n${textCommands}\nET`
-    const streamBytes = new TextEncoder().encode(stream).length
-    const contentId = addObject(`<< /Length ${streamBytes} >>\nstream\n${stream}\nendstream`)
-    contentObjectIds.push(contentId)
-  })
-
-  const pagesObjectId = objects.length + pages.length + 1
-  const pageObjectIds = contentObjectIds.map(contentId =>
-    addObject(
-      `<< /Type /Page /Parent ${pagesObjectId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentId} 0 R >>`
-    )
-  )
-  addObject(`<< /Type /Pages /Kids [${pageObjectIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`)
-  const catalogObjectId = addObject(`<< /Type /Catalog /Pages ${pagesObjectId} 0 R >>`)
-
-  let pdf = '%PDF-1.4\n'
-  const offsets = [0]
-
-  objects.forEach((object, index) => {
-    offsets.push(pdf.length)
-    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
-  })
-
-  const xrefOffset = pdf.length
-  pdf += `xref\n0 ${objects.length + 1}\n`
-  pdf += '0000000000 65535 f \n'
-  offsets.slice(1).forEach(offset => {
-    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
-  })
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogObjectId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
-
-  return pdf
-}
-
-const getOrgLabel = user => user?.user_metadata?.org_name?.trim() || user?.email || 'Your organization'
-const normalizeTransaction = transaction => ({
-  ...transaction,
-  amount: Number(transaction.amount || 0),
-})
-
-const themeIcon = theme =>
-  theme === 'dark' ? (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M12 3.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V4.5a.75.75 0 0 1 .75-.75Zm0 12a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm8.25-4.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5h1.5ZM6.75 12a.75.75 0 0 1-.75.75H4.5a.75.75 0 0 1 0-1.5H6a.75.75 0 0 1 .75.75Zm10.553 5.053a.75.75 0 0 1 1.06 1.06l-1.06 1.061a.75.75 0 1 1-1.06-1.06l1.06-1.061ZM7.758 7.758a.75.75 0 0 1 0 1.06L6.697 9.879a.75.75 0 0 1-1.06-1.06l1.06-1.061a.75.75 0 0 1 1.061 0Zm10.605 2.121a.75.75 0 0 1-1.06 0l-1.06-1.06a.75.75 0 1 1 1.06-1.061l1.06 1.06a.75.75 0 0 1 0 1.061ZM7.758 16.242a.75.75 0 0 1-1.06 0l-1.061-1.06a.75.75 0 0 1 1.06-1.061l1.06 1.06a.75.75 0 0 1 0 1.061ZM12 18a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 12 18Z"
-        fill="currentColor"
-      />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M14.53 3.53a.75.75 0 0 1 .83.97A8.25 8.25 0 1 0 19.5 14.64a.75.75 0 0 1 .97.83A9.75 9.75 0 1 1 14.53 3.53Z"
-        fill="currentColor"
-      />
-    </svg>
-  )
+import AuthScreen from '../features/ledger/components/AuthScreen'
+import ThemeToggle from '../features/ledger/components/ThemeToggle'
+import { fetchDeletedTransactions, fetchMembers, fetchRestoreEvents, fetchTransactions } from '../features/ledger/services/ledgerService'
+import { downloadFilteredExcel, downloadFilteredPdf } from '../features/ledger/utils/exportUtils'
+import {
+  datePresetOptions,
+  formatDate,
+  formatFilterDate,
+  formatMoney,
+  formatRelativeDeletionWindow,
+  formatRelativeRestoreWindow,
+  getDatePresetRange,
+  getOrgLabel,
+  getSuggestedNotes,
+  normalizeTransaction,
+  toDateTimeLocalValue,
+  typeFilterOptions,
+} from '../features/ledger/utils/ledgerUtils'
 
 export default function Home() {
   const [theme, setTheme] = useState(() => {
@@ -263,6 +44,7 @@ export default function Home() {
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [showDeletedHistoryModal, setShowDeletedHistoryModal] = useState(false)
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
+  const [selectedDeletedTransactionIds, setSelectedDeletedTransactionIds] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [confirmSubmitting, setConfirmSubmitting] = useState(false)
 
@@ -379,12 +161,7 @@ export default function Home() {
   }
 
   const loadTransactions = async userId => {
-    const { data, error: queryError } = await supabase
-      .from('transactions')
-      .select('id,amount,type,note,transaction_date,created_at,member_name,deleted_at,delete_scheduled_for,last_restored_at,last_restored_by_email')
-      .eq('owner_id', userId)
-      .is('deleted_at', null)
-      .order('transaction_date', { ascending: false })
+    const { data, error: queryError } = await fetchTransactions(userId)
 
     if (queryError) {
       handleError('Unable to load transactions. Check your Supabase tables and policies.')
@@ -396,12 +173,7 @@ export default function Home() {
   }
 
   const loadDeletedTransactions = async userId => {
-    const { data, error: queryError } = await supabase
-      .from('transactions')
-      .select('id,amount,type,note,transaction_date,created_at,member_name,deleted_at,delete_scheduled_for,last_restored_at,last_restored_by_email')
-      .eq('owner_id', userId)
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false })
+    const { data, error: queryError } = await fetchDeletedTransactions(userId)
 
     if (queryError) {
       handleError('Unable to load deleted transaction history. Run the latest transaction archive SQL first.')
@@ -413,12 +185,7 @@ export default function Home() {
   }
 
   const loadRestoreEvents = async userId => {
-    const { data, error: queryError } = await supabase
-      .from('transaction_restore_events')
-      .select('id,transaction_id,restored_at,restored_by_email,deleted_at,original_transaction_date,note,member_name,amount,type')
-      .eq('owner_id', userId)
-      .order('restored_at', { ascending: false })
-      .limit(12)
+    const { data, error: queryError } = await fetchRestoreEvents(userId)
 
     if (queryError) {
       handleError('Unable to load restore activity. Run the latest transaction archive SQL first.')
@@ -430,11 +197,7 @@ export default function Home() {
   }
 
   const loadMembers = async userId => {
-    const { data, error: queryError } = await supabase
-      .from('members')
-      .select('name')
-      .eq('owner_id', userId)
-      .order('name')
+    const { data, error: queryError } = await fetchMembers(userId)
 
     if (queryError) {
       handleError('Unable to load members. Check your Supabase tables and policies.')
@@ -486,11 +249,29 @@ export default function Home() {
   )
   const allVisibleTransactionsSelected =
     visibleTransactionIds.length > 0 && selectedVisibleTransactionIds.length === visibleTransactionIds.length
+  const visibleDeletedTransactionIds = useMemo(
+    () => deletedTransactions.map(transaction => transaction.id),
+    [deletedTransactions]
+  )
+  const selectedVisibleDeletedTransactionIds = useMemo(
+    () => visibleDeletedTransactionIds.filter(transactionId => selectedDeletedTransactionIds.includes(transactionId)),
+    [selectedDeletedTransactionIds, visibleDeletedTransactionIds]
+  )
+  const allVisibleDeletedTransactionsSelected =
+    visibleDeletedTransactionIds.length > 0 &&
+    selectedVisibleDeletedTransactionIds.length === visibleDeletedTransactionIds.length
 
   useEffect(() => {
     const activeTransactionIds = new Set(allTransactions.map(transaction => transaction.id))
     setSelectedTransactionIds(currentIds => currentIds.filter(transactionId => activeTransactionIds.has(transactionId)))
   }, [allTransactions])
+
+  useEffect(() => {
+    const activeDeletedTransactionIds = new Set(deletedTransactions.map(transaction => transaction.id))
+    setSelectedDeletedTransactionIds(currentIds =>
+      currentIds.filter(transactionId => activeDeletedTransactionIds.has(transactionId))
+    )
+  }, [deletedTransactions])
 
   const summary = useMemo(() => {
     const totalIn = filteredTransactions
@@ -594,71 +375,14 @@ export default function Home() {
     [filteredTransactions]
   )
 
-  const downloadFilteredExcel = () => {
-    if (exportRows.length === 0) {
-      handleError('No filtered transactions available to export.')
-      return
-    }
-
-    const tableRows = exportRows
-      .map(
-        row =>
-          `<tr><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.amount)}</td><td>${escapeHtml(row.member)}</td><td>${escapeHtml(row.date)}</td><td>${escapeHtml(row.note)}</td></tr>`
-      )
-      .join('')
-
-    const html = `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <style>
-      body { font-family: Arial, sans-serif; padding: 24px; }
-      h1 { margin-bottom: 4px; }
-      p { color: #4b5563; }
-      table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-      th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; }
-      th { background: #eef2ff; }
-    </style>
-  </head>
-  <body>
-    <h1>GrowwHigh Transactions</h1>
-    <p>Showing ${escapeHtml(String(summary.transactionCount))} transactions for ${escapeHtml(filterSummaryLabel)}</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Amount</th>
-          <th>Member</th>
-          <th>Date</th>
-          <th>Note</th>
-        </tr>
-      </thead>
-      <tbody>${tableRows}</tbody>
-    </table>
-  </body>
-</html>`
-
-    triggerDownload(html, `${exportFileBaseName}.xls`, 'application/vnd.ms-excel;charset=utf-8;')
+  const handleDownloadFilteredExcel = () => {
+    const success = downloadFilteredExcel({ exportRows, summary, filterSummaryLabel, exportFileBaseName })
+    if (!success) handleError('No filtered transactions available to export.')
   }
 
-  const downloadFilteredPdf = () => {
-    if (exportRows.length === 0) {
-      handleError('No filtered transactions available to export.')
-      return
-    }
-
-    const pdfRows = exportRows.map(row => {
-      const noteText = row.note.length > 34 ? `${row.note.slice(0, 31)}...` : row.note
-      return `${row.type.padEnd(8)} | ${row.amount.padEnd(12)} | ${row.member.padEnd(14)} | ${row.date.padEnd(20)} | ${noteText}`
-    })
-
-    const pdf = buildSimplePdf({
-      title: 'GrowwHigh Transactions',
-      subtitle: `${summary.transactionCount} shown | ${filterSummaryLabel} | ${filterMemberName === 'all' ? 'All members' : filterMemberName}`,
-      rows: pdfRows,
-    })
-
-    triggerDownload(pdf, `${exportFileBaseName}.pdf`, 'application/pdf')
+  const handleDownloadFilteredPdf = () => {
+    const success = downloadFilteredPdf({ exportRows, summary, filterSummaryLabel, filterMemberName, exportFileBaseName })
+    if (!success) handleError('No filtered transactions available to export.')
   }
 
   const submitAuth = async event => {
@@ -894,73 +618,114 @@ export default function Home() {
     })
   }
 
-  const deleteAllVisibleTransactions = () => {
-    if (visibleTransactionIds.length === 0) {
-      handleError('No transactions available to delete.')
-      return
-    }
-
-    openConfirmDialog({
-      title: `Delete all ${visibleTransactionIds.length} shown transaction${visibleTransactionIds.length === 1 ? '' : 's'}?`,
-      message: 'Every transaction currently matching your filters will move to deleted history for 30 days.',
-      confirmLabel: 'Delete all',
-      tone: 'danger',
-      onConfirm: async () => deleteTransactionsByIds(visibleTransactionIds),
-    })
-  }
-
   const restoreTransaction = async transactionId => {
     if (!session?.user?.id) return
-
-    const transactionToRestore = deletedTransactions.find(transaction => transaction.id === transactionId)
-    if (!transactionToRestore) {
-      handleError('That deleted transaction could not be found.')
-      return
-    }
-
     openConfirmDialog({
       title: 'Restore transaction?',
       message: 'This transaction will return to the main ledger and the restore action will be logged.',
       confirmLabel: 'Restore',
       tone: 'success',
-      onConfirm: async () => {
-        const restorePayload = {
-          transaction_id: transactionToRestore.id,
-          owner_id: session.user.id,
-          restored_by_email: session.user.email || '',
-          deleted_at: transactionToRestore.deleted_at,
-          original_transaction_date: transactionToRestore.transaction_date,
-          note: transactionToRestore.note || '',
-          member_name: transactionToRestore.member_name || '',
-          amount: transactionToRestore.amount,
-          type: transactionToRestore.type,
-        }
+      onConfirm: async () => restoreTransactionsByIds([transactionId]),
+    })
+  }
 
-        const { error: logError } = await supabase.from('transaction_restore_events').insert([restorePayload])
+  const restoreTransactionsByIds = async transactionIds => {
+    if (!session?.user?.id) return
+    if (transactionIds.length === 0) return
 
-        if (logError) {
-          handleError(logError.message || 'Unable to log restore activity.')
-          return
-        }
+    const uniqueTransactionIds = Array.from(new Set(transactionIds))
+    const transactionsToRestore = deletedTransactions.filter(transaction => uniqueTransactionIds.includes(transaction.id))
 
-        const { error: restoreError } = await supabase
-          .from('transactions')
-          .update({
-            deleted_at: null,
-            delete_scheduled_for: null,
-            last_restored_at: new Date().toISOString(),
-            last_restored_by_email: session.user.email || '',
-          })
-          .eq('owner_id', session.user.id)
-          .eq('id', transactionId)
+    if (transactionsToRestore.length === 0) {
+      handleError('No matching deleted transactions were found.')
+      return
+    }
 
-        if (restoreError) {
-          handleError(restoreError.message || 'Unable to restore transaction.')
-          return
-        }
+    const restoredAt = new Date().toISOString()
+    const restorePayloads = transactionsToRestore.map(transaction => ({
+      transaction_id: transaction.id,
+      owner_id: session.user.id,
+      restored_by_email: session.user.email || '',
+      deleted_at: transaction.deleted_at,
+      original_transaction_date: transaction.transaction_date,
+      note: transaction.note || '',
+      member_name: transaction.member_name || '',
+      amount: transaction.amount,
+      type: transaction.type,
+    }))
 
-        await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id), loadRestoreEvents(session.user.id)])
-      },
+    const { error: logError } = await supabase.from('transaction_restore_events').insert(restorePayloads)
+    if (logError) {
+      handleError(logError.message || 'Unable to log restore activity.')
+      return
+    }
+
+    const { error: restoreError } = await supabase
+      .from('transactions')
+      .update({
+        deleted_at: null,
+        delete_scheduled_for: null,
+        last_restored_at: restoredAt,
+        last_restored_by_email: session.user.email || '',
+      })
+      .eq('owner_id', session.user.id)
+      .in('id', transactionsToRestore.map(transaction => transaction.id))
+
+    if (restoreError) {
+      handleError(restoreError.message || 'Unable to restore transactions.')
+      return
+    }
+
+    setSelectedDeletedTransactionIds(currentIds =>
+      currentIds.filter(transactionId => !transactionsToRestore.some(transaction => transaction.id === transactionId))
+    )
+    await Promise.all([loadTransactions(session.user.id), loadDeletedTransactions(session.user.id), loadRestoreEvents(session.user.id)])
+  }
+
+  const toggleDeletedTransactionSelection = transactionId => {
+    setSelectedDeletedTransactionIds(currentIds =>
+      currentIds.includes(transactionId)
+        ? currentIds.filter(currentId => currentId !== transactionId)
+        : [...currentIds, transactionId]
+    )
+  }
+
+  const toggleAllDeletedTransactionSelection = () => {
+    setSelectedDeletedTransactionIds(currentIds => {
+      if (allVisibleDeletedTransactionsSelected) {
+        return currentIds.filter(transactionId => !visibleDeletedTransactionIds.includes(transactionId))
+      }
+      return Array.from(new Set([...currentIds, ...visibleDeletedTransactionIds]))
+    })
+  }
+
+  const restoreSelectedTransactions = () => {
+    if (selectedVisibleDeletedTransactionIds.length === 0) {
+      handleError('Select at least one deleted transaction to restore.')
+      return
+    }
+
+    openConfirmDialog({
+      title: `Restore ${selectedVisibleDeletedTransactionIds.length} selected transaction${selectedVisibleDeletedTransactionIds.length === 1 ? '' : 's'}?`,
+      message: 'Selected transactions will return to the main ledger and each restore action will be logged.',
+      confirmLabel: 'Restore selected',
+      tone: 'success',
+      onConfirm: async () => restoreTransactionsByIds(selectedVisibleDeletedTransactionIds),
+    })
+  }
+
+  const restoreAllDeletedTransactions = () => {
+    if (visibleDeletedTransactionIds.length === 0) {
+      handleError('No deleted transactions available to restore.')
+      return
+    }
+
+    openConfirmDialog({
+      title: `Restore all ${visibleDeletedTransactionIds.length} deleted transaction${visibleDeletedTransactionIds.length === 1 ? '' : 's'}?`,
+      message: 'All deleted transactions will return to the main ledger and restore activity will be logged.',
+      confirmLabel: 'Restore all',
+      tone: 'success',
+      onConfirm: async () => restoreTransactionsByIds(visibleDeletedTransactionIds),
     })
   }
 
@@ -1031,103 +796,22 @@ export default function Home() {
   }
 
   if (!currentUser) {
-    return (
-      <main className="main-shell">
-        <div className="container auth-shell">
-          <section className="card auth-card">
-            <div className="auth-copy">
-              <div className="top-bar-inline">
-                <span className="badge">Organization login</span>
-              </div>
-              <div className="brand-title-row">
-                <BrandLogo />
-                <button
-                  className="theme-brand-toggle"
-                  type="button"
-                  onClick={toggleTheme}
-                  aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                  <span className="theme-brand-icon">{themeIcon(theme)}</span>
-                  <span className="theme-brand-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-                </button>
-              </div>
-              <p>
-                Sign in as an organization user to access your own ledger. Members stay inside your workspace and are used only for transaction ownership.
-              </p>
-            </div>
-
-            {error && (
-              <div className="error-toast auth-toast" role="status" aria-live="polite">
-                <span className="error-dot">!</span>
-                <span>{error}</span>
-                <button type="button" onClick={() => setError('')} aria-label="Dismiss message">
-                  x
-                </button>
-              </div>
-            )}
-
-            <form className="auth-form" onSubmit={submitAuth}>
-              <div className="auth-switch">
-                <button
-                  type="button"
-                  className={authMode === 'sign-in' ? 'secondary active-tab' : 'secondary'}
-                  onClick={() => setAuthMode('sign-in')}
-                >
-                  Sign in
-                </button>
-                <button
-                  type="button"
-                  className={authMode === 'sign-up' ? 'secondary active-tab' : 'secondary'}
-                  onClick={() => setAuthMode('sign-up')}
-                >
-                  Create account
-                </button>
-              </div>
-
-              {authMode === 'sign-up' && (
-                <div className="form-group">
-                  <label htmlFor="org-name">Organization name</label>
-                  <input
-                    id="org-name"
-                    type="text"
-                    placeholder="Acme Retail"
-                    value={orgName}
-                    onChange={event => setOrgName(event.target.value)}
-                  />
-                </div>
-              )}
-
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="owner@company.com"
-                  value={email}
-                  onChange={event => setEmail(event.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  placeholder="Minimum 6 characters"
-                  value={password}
-                  onChange={event => setPassword(event.target.value)}
-                />
-              </div>
-
-              <button className="primary" type="submit" disabled={authSubmitting}>
-                {authSubmitting ? 'Please wait...' : authMode === 'sign-in' ? 'Sign in' : 'Create organization user'}
-              </button>
-            </form>
-          </section>
-        </div>
-      </main>
-    )
+    return <AuthScreen
+      theme={theme}
+      toggleTheme={toggleTheme}
+      error={error}
+      setError={setError}
+      authMode={authMode}
+      setAuthMode={setAuthMode}
+      submitAuth={submitAuth}
+      orgName={orgName}
+      setOrgName={setOrgName}
+      email={email}
+      setEmail={setEmail}
+      password={password}
+      setPassword={setPassword}
+      authSubmitting={authSubmitting}
+    />
   }
 
   return (
@@ -1137,33 +821,53 @@ export default function Home() {
           <div className="brand">
             <div className="brand-title-row">
               <BrandLogo compact />
-              <button
-                className="theme-brand-toggle"
-                type="button"
-                onClick={toggleTheme}
-                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                <span className="theme-brand-icon">{themeIcon(theme)}</span>
-                <span className="theme-brand-text">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-              </button>
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
             </div>
             <p>Manage cash flow for {getOrgLabel(currentUser)}. Members stay scoped to this organization only.</p>
           </div>
           <div className="header-actions header-actions-stack">
-            <div className="user-chip">
-              <strong>{getOrgLabel(currentUser)}</strong>
-              <span>{currentUser.email}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <div className="user-chip">
+                <strong>{getOrgLabel(currentUser)}</strong>
+                <span>{currentUser.email}</span>
+              </div>
+              <button
+                className="secondary"
+                onClick={signOut}
+                aria-label="Sign out"
+                title="Sign out"
+                style={{ padding: '10px', minWidth: '40px', width: '40px', justifyContent: 'center' }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    d="M10 4.75a.75.75 0 0 1 .75-.75h4.5A2.75 2.75 0 0 1 18 6.75v10.5A2.75 2.75 0 0 1 15.25 20h-4.5a.75.75 0 0 1 0-1.5h4.5c.69 0 1.25-.56 1.25-1.25V6.75c0-.69-.56-1.25-1.25-1.25h-4.5a.75.75 0 0 1-.75-.75Zm-1.72 3.22a.75.75 0 0 1 1.06 0l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H4.75a.75.75 0 0 1 0-1.5h5.75L8.28 9.03a.75.75 0 0 1 0-1.06Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
             </div>
             <div className="header-button-row">
               <button className="secondary" onClick={() => setShowMembersModal(true)}>
-                Manage members
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path
+                      d="M7.5 11a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm9 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM3 19.2C3 16.9 4.9 15 7.2 15h.6c2.3 0 4.2 1.9 4.2 4.2V20H3v-.8Zm10.6.8v-.5c0-1.2-.4-2.4-1.2-3.3.5-.1 1-.2 1.5-.2h.5c2 0 3.6 1.6 3.6 3.6v.4h-4.4Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span>Manage members</span>
+                </span>
               </button>
               <button className="secondary" onClick={() => setShowDeletedHistoryModal(true)}>
-                Deleted history {deletedTransactions.length > 0 ? `(${deletedTransactions.length})` : ''}
-              </button>
-              <button className="secondary" onClick={signOut}>
-                Sign out
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path
+                      d="M6.75 3.75A.75.75 0 0 1 7.5 3h9a.75.75 0 0 1 .75.75V6h1.75a.75.75 0 0 1 0 1.5h-.55l-.77 10.08A2.5 2.5 0 0 1 15.19 20H8.81a2.5 2.5 0 0 1-2.49-2.42L5.55 7.5H5a.75.75 0 0 1 0-1.5h1.75V3.75ZM8.25 6h7.5V4.5h-7.5V6Zm-.43 1.5.73 9.97c.03.52.47.93.99.93h6.92c.52 0 .96-.41.99-.93l.73-9.97H7.82ZM10 9.25a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5A.75.75 0 0 1 10 9.25Zm4 0a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5a.75.75 0 0 1 .75-.75Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span>Deleted history {deletedTransactions.length > 0 ? `(${deletedTransactions.length})` : ''}</span>
+                </span>
               </button>
             </div>
           </div>
@@ -1312,16 +1016,9 @@ export default function Home() {
                     </div>
                     <div className="filter-actions">
                       <button
-                        className="secondary compact-button"
-                        type="button"
-                        onClick={() => setShowDeletedHistoryModal(true)}
-                      >
-                        Deleted history
-                      </button>
-                      <button
                         className="export-icon-button excel-export"
                         type="button"
-                        onClick={downloadFilteredExcel}
+                        onClick={handleDownloadFilteredExcel}
                         aria-label="Download filtered transactions as Excel"
                         title="Download Excel"
                       >
@@ -1333,7 +1030,7 @@ export default function Home() {
                       <button
                         className="export-icon-button pdf-export"
                         type="button"
-                        onClick={downloadFilteredPdf}
+                        onClick={handleDownloadFilteredPdf}
                         aria-label="Download filtered transactions as PDF"
                         title="Download PDF"
                       >
@@ -1466,8 +1163,9 @@ export default function Home() {
                           checked={allVisibleTransactionsSelected}
                           onChange={toggleVisibleTransactionSelection}
                         />
-                        <span>{selectedVisibleTransactionIds.length} selected</span>
+                        <span>Select all</span>
                       </label>
+                      <span className="badge">{selectedVisibleTransactionIds.length} selected</span>
                       <span className="badge">{filteredTransactions.length} shown</span>
                     </div>
                     <div className="bulk-action-buttons">
@@ -1479,21 +1177,10 @@ export default function Home() {
                       >
                         Delete selected
                       </button>
-                      <button className="danger" type="button" onClick={deleteAllVisibleTransactions}>
-                        Delete all
-                      </button>
                     </div>
                   </div>
                   <div className="table-head">
-                    <span className="table-head-select">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all shown transactions"
-                        checked={allVisibleTransactionsSelected}
-                        onChange={toggleVisibleTransactionSelection}
-                      />
-                      Type
-                    </span>
+                    <span>Type</span>
                     <span>Amount</span>
                     <span>Note</span>
                     <span>Member</span>
@@ -1724,6 +1411,33 @@ export default function Home() {
                 <p className="muted">No deleted transactions right now.</p>
               ) : (
                 <div className="table-wrapper deleted-history-table">
+                  <div className="bulk-action-bar">
+                    <div className="bulk-selection-summary">
+                      <label className="selection-control">
+                        <input
+                          type="checkbox"
+                          checked={allVisibleDeletedTransactionsSelected}
+                          onChange={toggleAllDeletedTransactionSelection}
+                        />
+                        <span>Select all</span>
+                      </label>
+                      <span className="badge">{selectedVisibleDeletedTransactionIds.length} selected</span>
+                      <span className="badge">{deletedTransactions.length} deleted</span>
+                    </div>
+                    <div className="bulk-action-buttons">
+                      <button
+                        className="primary"
+                        type="button"
+                        onClick={restoreSelectedTransactions}
+                        disabled={selectedVisibleDeletedTransactionIds.length === 0}
+                      >
+                        Restore selected
+                      </button>
+                      <button className="secondary" type="button" onClick={restoreAllDeletedTransactions}>
+                        Restore all
+                      </button>
+                    </div>
+                  </div>
                   <div className="table-head">
                     <span>Type</span>
                     <span>Amount</span>
@@ -1735,7 +1449,13 @@ export default function Home() {
                   <div className="table-body">
                     {deletedTransactions.map(transaction => (
                       <div key={transaction.id} className="table-row">
-                        <span>
+                        <span className="transaction-type-cell">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select deleted ${transaction.type === 'in' ? 'cash in' : 'cash out'} transaction`}
+                            checked={selectedDeletedTransactionIds.includes(transaction.id)}
+                            onChange={() => toggleDeletedTransactionSelection(transaction.id)}
+                          />
                           <span className={`tag ${transaction.type === 'in' ? 'credit' : 'debit'}`}>
                             {transaction.type === 'in' ? 'Cash in' : 'Cash out'}
                           </span>
