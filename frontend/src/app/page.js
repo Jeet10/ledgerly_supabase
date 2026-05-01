@@ -447,6 +447,21 @@ export default function Home() {
     }
   }
 
+  const signInWithGoogle = async () => {
+    const redirectTo = typeof window === 'undefined' ? undefined : window.location.origin
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+      },
+    })
+
+    if (oauthError) {
+      handleError(oauthError.message || 'Unable to continue with Google sign-in.')
+    }
+  }
+
   const addMember = async () => {
     if (!session?.user?.id) return
 
@@ -811,6 +826,7 @@ export default function Home() {
       password={password}
       setPassword={setPassword}
       authSubmitting={authSubmitting}
+      signInWithGoogle={signInWithGoogle}
     />
   }
 

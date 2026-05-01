@@ -138,11 +138,43 @@ using (auth.uid() = owner_id);
 
 ## 6. Env setup
 
+### Local development (Dev database)
+
 Create `frontend/.env.local` with:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_DEV_PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_DEV_SUPABASE_ANON_KEY
+```
+
+### Production deployment (Prod database)
+
+Use the template `frontend/.env.production.example` and set your production values:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROD_PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_PROD_SUPABASE_ANON_KEY
+```
+
+Do not commit real secrets or real env files. Keep production values in your hosting provider (Vercel) environment settings.
+
+### Vercel environment setup
+
+1. Open your Vercel project dashboard.
+2. Go to `Settings -> Environment Variables`.
+3. Add both variables exactly:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Set them for the `Production` environment (and `Preview` if you also want preview deployments to use a specific Supabase project).
+5. Save changes.
+6. Redeploy the latest production deployment so new variables are applied.
+
+Optional (Vercel CLI):
+
+```bash
+vercel env add NEXT_PUBLIC_SUPABASE_URL production
+vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production
+vercel --prod
 ```
 
 ## 7. Run the project
