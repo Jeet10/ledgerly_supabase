@@ -351,6 +351,18 @@ button:disabled {
   border-radius: 14px;
   border: 1px solid var(--header-accent-border);
   background: var(--header-accent-bg);
+  transition: all 0.2s ease;
+}
+
+.user-chip:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--header-accent-bg) 70%, var(--accent) 8%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.user-chip-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .user-chip-logo {
@@ -359,7 +371,12 @@ button:disabled {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--accent);
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.user-chip:hover .user-chip-logo {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .user-chip-avatar {
@@ -371,7 +388,29 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.user-chip:hover .user-chip-avatar {
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.user-chip-edit-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.user-chip:hover .user-chip-edit-overlay {
+  opacity: 1;
 }
 
 .user-chip-info {

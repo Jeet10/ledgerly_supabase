@@ -863,19 +863,29 @@ export default function Home() {
           </div>
           <div className="header-actions header-actions-stack">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <div className="user-chip">
-                {orgLogoUrl ? (
-                  <img src={orgLogoUrl} alt="Organization logo" className="user-chip-logo" />
-                ) : (
-                  <div className="user-chip-avatar">
-                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <div className="user-chip" onClick={() => setShowProfileModal(true)} style={{ cursor: 'pointer' }}>
+                <div className="user-chip-avatar-wrapper">
+                  {orgLogoUrl ? (
+                    <img src={orgLogoUrl} alt="Organization logo" className="user-chip-logo" />
+                  ) : (
+                    <div className="user-chip-avatar">
+                      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                        <path
+                          fill="currentColor"
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="user-chip-edit-overlay">
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                       <path
                         fill="currentColor"
-                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z"
+                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z"
                       />
                     </svg>
                   </div>
-                )}
+                </div>
                 <div className="user-chip-info">
                   <strong>{getOrgLabel(currentUser)}</strong>
                   <span>{currentUser.email}</span>
@@ -897,17 +907,6 @@ export default function Home() {
               </button>
             </div>
             <div className="header-button-row">
-              <button className="secondary" onClick={() => setShowProfileModal(true)}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z"
-                    />
-                  </svg>
-                  <span>Profile</span>
-                </span>
-              </button>
               <button className="secondary" onClick={() => setShowMembersModal(true)}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
