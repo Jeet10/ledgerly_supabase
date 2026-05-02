@@ -240,6 +240,75 @@ button:disabled {
   width: 100%;
 }
 
+.success-toast {
+  position: static;
+  width: 100%;
+  background: var(--toast-bg);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.success-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--success);
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.success-toast button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.success-toast button:hover {
+  color: var(--text);
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.forgot-password-row {
+  text-align: right;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.forgot-password-link,
+.auth-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover,
+.auth-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
 .brand-row {
   display: flex;
   justify-content: space-between;
