@@ -5,6 +5,7 @@ import BrandLogo from './BrandLogo'
 import { supabase } from '../lib/supabaseClient'
 import AuthScreen from '../features/ledger/components/AuthScreen'
 import DeletedHistoryModal from '../features/ledger/components/DeletedHistoryModal'
+import ProfileModal from '../features/ledger/components/ProfileModal'
 import ThemeToggle from '../features/ledger/components/ThemeToggle'
 import { fetchDeletedTransactions, fetchMembers, fetchRestoreEvents, fetchTransactions } from '../features/ledger/services/ledgerService'
 import { downloadFilteredExcel, downloadFilteredPdf } from '../features/ledger/utils/exportUtils'
@@ -43,6 +44,8 @@ export default function Home() {
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [showMembersModal, setShowMembersModal] = useState(false)
   const [showDeletedHistoryModal, setShowDeletedHistoryModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [orgLogoUrl, setOrgLogoUrl] = useState(null)
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
   const [selectedDeletedTransactionIds, setSelectedDeletedTransactionIds] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
@@ -100,6 +103,23 @@ export default function Home() {
       subscription.unsubscribe()
     }
   }, [])
+
+  // Load org logo when session changes
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setOrgLogoUrl(null)
+      return
+    }
+
+    const loadOrgLogo = async () => {
+      const { data: { publicUrl } } = supabase.storage
+        .from('org-logos')
+        .getPublicUrl(`${session.user.id}/logo.png`)
+      setOrgLogoUrl(publicUrl)
+    }
+
+    loadOrgLogo()
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (!session?.user?.id) {
@@ -844,8 +864,22 @@ export default function Home() {
           <div className="header-actions header-actions-stack">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <div className="user-chip">
-                <strong>{getOrgLabel(currentUser)}</strong>
-                <span>{currentUser.email}</span>
+                {orgLogoUrl ? (
+                  <img src={orgLogoUrl} alt="Organization logo" className="user-chip-logo" />
+                ) : (
+                  <div className="user-chip-avatar">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z"
+                      />
+                    </svg>
+                  </div>
+                )}
+                <div className="user-chip-info">
+                  <strong>{getOrgLabel(currentUser)}</strong>
+                  <span>{currentUser.email}</span>
+                </div>
               </div>
               <button
                 className="secondary"
@@ -863,6 +897,17 @@ export default function Home() {
               </button>
             </div>
             <div className="header-button-row">
+              <button className="secondary" onClick={() => setShowProfileModal(true)}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2Zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3Zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22Z"
+                    />
+                  </svg>
+                  <span>Profile</span>
+                </span>
+              </button>
               <button className="secondary" onClick={() => setShowMembersModal(true)}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
@@ -1409,6 +1454,14 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          userId={currentUser.id}
+          currentLogoUrl={orgLogoUrl}
+          onLogoUpdate={(newUrl) => setOrgLogoUrl(newUrl)}
+        />
 
         <DeletedHistoryModal
           show={showDeletedHistoryModal}
