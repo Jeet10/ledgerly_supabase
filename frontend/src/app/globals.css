@@ -534,8 +534,13 @@ button:disabled {
 
 .logo-actions {
   display: flex;
-  gap: 12px;
   justify-content: center;
+}
+
+.logo-action-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .upload-btn {
@@ -543,6 +548,14 @@ button:disabled {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  height: 42px;
+}
+
+.remove-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
 }
 
 .crop-actions {

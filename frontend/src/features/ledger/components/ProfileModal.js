@@ -1,21 +1,27 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
 const LOGO_SIZE = 256 // Output logo size (1:1 ratio)
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 
-export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, onLogoUpdate }) {
+export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, onLogoUpdate, hasLogo = false }) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
   const [previewUrl, setPreviewUrl] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [isCropping, setIsCropping] = useState(false)
+  const [localHasLogo, setLocalHasLogo] = useState(hasLogo)
   const fileInputRef = useRef(null)
-  const canvasRef = useRef(null)
   const imageRef = useRef(null)
+
+  // Sync with parent's hasLogo prop
+  useEffect(() => {
+    console.log('ProfileModal: hasLogo prop changed to:', hasLogo)
+    setLocalHasLogo(hasLogo)
+  }, [hasLogo])
 
   // Crop image to 1:1 ratio using canvas
   const cropToSquare = useCallback((image, size) => {
@@ -67,7 +73,10 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
 
   // Handle crop and upload
   const handleCropAndUpload = useCallback(async () => {
-    if (!imageRef.current || !selectedFile) return
+    if (!selectedFile || !previewUrl) {
+      setError('No file selected')
+      return
+    }
 
     setIsUploading(true)
     setError('')
@@ -75,11 +84,11 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
     try {
       // Load image
       const image = new Image()
-      image.src = previewUrl
-
+      
       await new Promise((resolve, reject) => {
         image.onload = resolve
-        image.onerror = reject
+        image.onerror = () => reject(new Error('Failed to load image'))
+        image.src = previewUrl
       })
 
       // Crop to square
@@ -114,7 +123,8 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
             .from('org-logos')
             .getPublicUrl(fileName)
 
-          // Update parent component
+          // Update local state and parent component
+          setLocalHasLogo(true)
           if (onLogoUpdate) {
             onLogoUpdate(publicUrl)
           }
@@ -140,31 +150,44 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
 
   // Handle remove logo
   const handleRemoveLogo = useCallback(async () => {
+    if (!userId) {
+      setError('User ID is required to remove logo')
+      return
+    }
+
     setIsUploading(true)
     setError('')
 
     try {
       const fileName = `${userId}/logo.png`
+      console.log('Removing logo:', fileName)
+      
       const { error: deleteError } = await supabase.storage
         .from('org-logos')
         .remove([fileName])
 
       if (deleteError) {
+        console.error('Delete error:', deleteError)
         setError(deleteError.message)
         setIsUploading(false)
         return
       }
 
-      // Update parent component
+      console.log('Logo removed successfully')
+
+      // Update local state and parent component
+      setLocalHasLogo(false)
       if (onLogoUpdate) {
         onLogoUpdate(null)
       }
 
+      // Reset state
       setPreviewUrl(null)
       setSelectedFile(null)
       setIsCropping(false)
       setIsUploading(false)
     } catch (err) {
+      console.error('Remove logo exception:', err)
       setError('Failed to remove logo: ' + err.message)
       setIsUploading(false)
     }
@@ -222,19 +245,19 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
                     src={previewUrl}
                     alt="Preview for cropping"
                     className="crop-preview-image"
-                    onLoad={handleCropAndUpload}
                   />
                   <div className="crop-overlay">
                     <div className="crop-guide">
-                      <span>Preview (1:1)</span>
+                      <span>Preview (1:1) - Click "Save & Upload"</span>
                     </div>
                   </div>
                 </div>
-              ) : currentLogoUrl ? (
+              ) : currentLogoUrl && localHasLogo ? (
                 <img
                   src={currentLogoUrl}
                   alt="Organization logo"
                   className="current-logo"
+                  onError={() => setLocalHasLogo(false)}
                 />
               ) : (
                 <div className="logo-placeholder">
@@ -253,7 +276,7 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
           {/* Actions */}
           <div className="logo-actions">
             {!isCropping ? (
-              <>
+              <div className="logo-action-buttons">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -272,9 +295,9 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
                   </svg>
                   {isUploading ? 'Uploading...' : 'Upload Logo'}
                 </label>
-                {currentLogoUrl && (
+                {localHasLogo && (
                   <button
-                    className="danger"
+                    className="danger remove-btn"
                     onClick={handleRemoveLogo}
                     disabled={isUploading}
                   >
@@ -284,10 +307,10 @@ export default function ProfileModal({ isOpen, onClose, userId, currentLogoUrl, 
                         d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"
                       />
                     </svg>
-                    Remove Logo
+                    <span>Remove Logo</span>
                   </button>
                 )}
-              </>
+              </div>
             ) : (
               <div className="crop-actions">
                 <button

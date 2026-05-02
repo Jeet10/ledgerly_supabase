@@ -46,6 +46,7 @@ export default function Home() {
   const [showDeletedHistoryModal, setShowDeletedHistoryModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [orgLogoUrl, setOrgLogoUrl] = useState(null)
+  const [hasOrgLogo, setHasOrgLogo] = useState(false)
   const [selectedTransactionIds, setSelectedTransactionIds] = useState([])
   const [selectedDeletedTransactionIds, setSelectedDeletedTransactionIds] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
@@ -108,14 +109,36 @@ export default function Home() {
   useEffect(() => {
     if (!session?.user?.id) {
       setOrgLogoUrl(null)
+      setHasOrgLogo(false)
       return
     }
 
     const loadOrgLogo = async () => {
+      const fileName = `${session.user.id}/logo.png`
       const { data: { publicUrl } } = supabase.storage
         .from('org-logos')
-        .getPublicUrl(`${session.user.id}/logo.png`)
-      setOrgLogoUrl(publicUrl)
+        .getPublicUrl(fileName)
+      
+      // Add a timestamp to bypass cache
+      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`
+      
+      // Check if the file actually exists by trying to fetch it
+      try {
+        const response = await fetch(cacheBustedUrl, { 
+          method: 'HEAD',
+          cache: 'no-cache'
+        })
+        if (response.ok && response.status === 200) {
+          setOrgLogoUrl(publicUrl)
+          setHasOrgLogo(true)
+        } else {
+          setOrgLogoUrl(null)
+          setHasOrgLogo(false)
+        }
+      } catch {
+        setOrgLogoUrl(null)
+        setHasOrgLogo(false)
+      }
     }
 
     loadOrgLogo()
@@ -1458,8 +1481,12 @@ export default function Home() {
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           userId={currentUser.id}
-          currentLogoUrl={orgLogoUrl}
-          onLogoUpdate={(newUrl) => setOrgLogoUrl(newUrl)}
+          currentLogoUrl={orgLogoUrl ? `${orgLogoUrl}?t=${Date.now()}` : null}
+          hasLogo={hasOrgLogo}
+          onLogoUpdate={(newUrl) => {
+            setOrgLogoUrl(newUrl)
+            setHasOrgLogo(!!newUrl)
+          }}
         />
 
         <DeletedHistoryModal
