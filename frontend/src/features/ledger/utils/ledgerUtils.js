@@ -40,11 +40,22 @@ export const formatFilterDate = value => {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
+// Returns a value suitable for <input type="datetime-local"> (YYYY-MM-DDTHH:mm format)
 export const toDateTimeLocalValue = value => {
   const date = value ? new Date(value) : new Date()
   if (Number.isNaN(date.getTime())) return ''
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
   return localDate.toISOString().slice(0, 16)
+}
+
+// Converts a datetime-local value to a proper ISO string with timezone info for API/DB
+// If localValue is empty/blank, returns current time
+export const toUTCString = localValue => {
+  if (!localValue || localValue.trim() === '') return new Date().toISOString()
+  // Parse the local value as if it's in the browser's timezone
+  const date = new Date(localValue)
+  if (Number.isNaN(date.getTime())) return new Date().toISOString()
+  return date.toISOString()
 }
 
 export const getDatePresetRange = (preset, customStartDate, customEndDate) => {

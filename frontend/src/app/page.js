@@ -20,6 +20,7 @@ import {
   getSuggestedNotes,
   normalizeTransaction,
   toDateTimeLocalValue,
+  toUTCString,
   typeFilterOptions,
 } from '../features/ledger/utils/ledgerUtils'
 
@@ -54,7 +55,7 @@ export default function Home() {
 
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
-  const [transactionDate, setTransactionDate] = useState(toDateTimeLocalValue())
+  const [transactionDate, setTransactionDate] = useState('')
 
   const [filterDatePreset, setFilterDatePreset] = useState('all')
   const [filterStartDate, setFilterStartDate] = useState('')
@@ -591,7 +592,7 @@ export default function Home() {
         amount: value,
         type: transactionType,
         note: note.trim(),
-        transaction_date: transactionDate,
+        transaction_date: toUTCString(transactionDate),
         member_name: selectedMemberName,
       },
     ])
@@ -603,7 +604,7 @@ export default function Home() {
 
     setAmount('')
     setNote('')
-    setTransactionDate(toDateTimeLocalValue())
+    setTransactionDate('')
     await loadTransactions(session.user.id)
   }
 
@@ -807,7 +808,7 @@ export default function Home() {
         amount: value,
         type: editingTransaction.type,
         note: editingTransaction.note.trim(),
-        transaction_date: editingTransaction.transaction_date,
+        transaction_date: toUTCString(editingTransaction.transaction_date),
         member_name: editingTransaction.member_name,
       })
       .eq('owner_id', session.user.id)
