@@ -66,7 +66,6 @@ export default function Home() {
   const [filterNote, setFilterNote] = useState('')
   const [filterMemberName, setFilterMemberName] = useState('all')
   const [filterTransactionType, setFilterTransactionType] = useState('all')
-  const [filtersExpanded, setFiltersExpanded] = useState(false)
 
   const [newMember, setNewMember] = useState('')
 
@@ -1155,20 +1154,7 @@ export default function Home() {
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  className="filters-disclosure"
-                  aria-expanded={filtersExpanded}
-                  onClick={() => setFiltersExpanded(value => !value)}
-                >
-                  <span>{filtersExpanded ? 'Hide advanced filters' : 'Show advanced filters'}</span>
-                  <svg className={filtersExpanded ? 'chev open' : 'chev'} viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-
-                {filtersExpanded && (
-                  <div className="entry-filters-advanced">
+                <div className="entry-filters-advanced">
                     <label className="filter-control" htmlFor="filter-member">
                       <span>Member</span>
                       <select
@@ -1220,7 +1206,6 @@ export default function Home() {
                       </div>
                     )}
                   </div>
-                )}
 
                 <div className="entry-filters-footer">
                   <span className="entry-filters-summary">{filterSummaryLabel}</span>
