@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import AuthScreen from '../features/ledger/components/AuthScreen'
 import DeletedHistoryModal from '../features/ledger/components/DeletedHistoryModal'
 import ProfileModal from '../features/ledger/components/ProfileModal'
-import ThemeToggle from '../features/ledger/components/ThemeToggle'
+import ThemeSwitcher, { DEFAULT_THEME, isValidTheme } from '../features/ledger/components/ThemeSwitcher'
 import { fetchDeletedTransactions, fetchMembers, fetchRestoreEvents, fetchTransactions } from '../features/ledger/services/ledgerService'
 import { downloadFilteredExcel, downloadFilteredPdf } from '../features/ledger/utils/exportUtils'
 import {
@@ -26,11 +26,14 @@ import {
 
 export default function Home() {
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'dark'
+    if (typeof window === 'undefined') return DEFAULT_THEME
 
     const savedTheme =
       window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark'
+    if (isValidTheme(savedTheme)) return savedTheme
+    if (savedTheme === 'dark') return 'midnight'
+    if (savedTheme === 'light') return 'daylight'
+    return DEFAULT_THEME
   })
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -63,6 +66,7 @@ export default function Home() {
   const [filterNote, setFilterNote] = useState('')
   const [filterMemberName, setFilterMemberName] = useState('all')
   const [filterTransactionType, setFilterTransactionType] = useState('all')
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
 
   const [newMember, setNewMember] = useState('')
 
@@ -824,7 +828,9 @@ export default function Home() {
   }
 
   const currentUser = session?.user
-  const toggleTheme = () => setTheme(currentTheme => (currentTheme === 'dark' ? 'light' : 'dark'))
+  const handleThemeChange = nextTheme => {
+    if (isValidTheme(nextTheme)) setTheme(nextTheme)
+  }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -857,7 +863,7 @@ export default function Home() {
   if (!currentUser) {
     return <AuthScreen
       theme={theme}
-      toggleTheme={toggleTheme}
+      onThemeChange={handleThemeChange}
       error={error}
       setError={setError}
       authMode={authMode}
@@ -881,7 +887,7 @@ export default function Home() {
           <div className="brand">
             <div className="brand-title-row">
               <BrandLogo compact />
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <ThemeSwitcher theme={theme} onChange={handleThemeChange} />
             </div>
             <p>Manage cash flow for {getOrgLabel(currentUser)}. Members stay scoped to this organization only.</p>
           </div>
@@ -922,33 +928,31 @@ export default function Home() {
                 title="Sign out"
                 style={{ padding: '10px', minWidth: '40px', width: '40px', justifyContent: 'center' }}
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path
-                    d="M10 4.75a.75.75 0 0 1 .75-.75h4.5A2.75 2.75 0 0 1 18 6.75v10.5A2.75 2.75 0 0 1 15.25 20h-4.5a.75.75 0 0 1 0-1.5h4.5c.69 0 1.25-.56 1.25-1.25V6.75c0-.69-.56-1.25-1.25-1.25h-4.5a.75.75 0 0 1-.75-.75Zm-1.72 3.22a.75.75 0 0 1 1.06 0l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.75.75 0 1 1-1.06-1.06l2.22-2.22H4.75a.75.75 0 0 1 0-1.5h5.75L8.28 9.03a.75.75 0 0 1 0-1.06Z"
-                    fill="currentColor"
-                  />
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
               </button>
             </div>
             <div className="header-button-row">
               <button className="secondary" onClick={() => setShowMembersModal(true)}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      d="M7.5 11a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm9 0a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM3 19.2C3 16.9 4.9 15 7.2 15h.6c2.3 0 4.2 1.9 4.2 4.2V20H3v-.8Zm10.6.8v-.5c0-1.2-.4-2.4-1.2-3.3.5-.1 1-.2 1.5-.2h.5c2 0 3.6 1.6 3.6 3.6v.4h-4.4Z"
-                      fill="currentColor"
-                    />
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                   <span>Manage members</span>
                 </span>
               </button>
               <button className="secondary" onClick={() => setShowDeletedHistoryModal(true)}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path
-                      d="M6.75 3.75A.75.75 0 0 1 7.5 3h9a.75.75 0 0 1 .75.75V6h1.75a.75.75 0 0 1 0 1.5h-.55l-.77 10.08A2.5 2.5 0 0 1 15.19 20H8.81a2.5 2.5 0 0 1-2.49-2.42L5.55 7.5H5a.75.75 0 0 1 0-1.5h1.75V3.75ZM8.25 6h7.5V4.5h-7.5V6Zm-.43 1.5.73 9.97c.03.52.47.93.99.93h6.92c.52 0 .96-.41.99-.93l.73-9.97H7.82ZM10 9.25a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5A.75.75 0 0 1 10 9.25Zm4 0a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5a.75.75 0 0 1 .75-.75Z"
-                      fill="currentColor"
-                    />
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                    <polyline points="3 3 3 8 8 8" />
+                    <path d="M12 7v5l3 2" />
                   </svg>
                   <span>Deleted history {deletedTransactions.length > 0 ? `(${deletedTransactions.length})` : ''}</span>
                 </span>
@@ -1083,78 +1087,88 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </section>
-          </div>
 
-          <div className="right-panel">
-            <section className="card transactions-card">
-              <div className="transactions-header">
-                <div className="filter-toolbar">
-                  <div className="filter-toolbar-top">
-                    <div className="filter-toolbar-heading">
-                      <span className="filter-kicker">Cash Flow</span>
-                      <div className="filter-toolbar-stats">
-                        <span className="badge">{summary.transactionCount} shown</span>
-                        <span className="badge">{filterSummaryLabel}</span>
-                      </div>
-                    </div>
-                    <div className="filter-actions">
-                      <button
-                        className="export-icon-button excel-export"
-                        type="button"
-                        onClick={handleDownloadFilteredExcel}
-                        aria-label="Download filtered transactions as Excel"
-                        title="Download Excel"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="m9 10 6 8M15 10l-6 8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                      <button
-                        className="export-icon-button pdf-export"
-                        type="button"
-                        onClick={handleDownloadFilteredPdf}
-                        aria-label="Download filtered transactions as PDF"
-                        title="Download PDF"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M8.5 16.5h1.2c.9 0 1.5-.6 1.5-1.4s-.6-1.4-1.5-1.4H8.5Zm5.1 2v-4.8h1.2c1.3 0 2.2.9 2.2 2.4s-.9 2.4-2.2 2.4Zm-5.1 0v-1.2m0 0v1.2m4.3-4.8H12v4.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
+              <div className="entry-filters">
+                <div className="entry-filters-header">
+                  <div className="entry-filters-title">
+                    <span className="entry-filters-kicker">Cashflow filters</span>
+                    <div className="entry-filters-meta">
+                      <span className="badge subtle">{summary.transactionCount} shown</span>
+                      {activeFilterCount > 0 && (
+                        <span className="badge accent-badge">{activeFilterCount} active</span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="filter-preset-group" role="tablist" aria-label="Date range filters">
-                    {datePresetOptions.map(option => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={filterDatePreset === option.value ? 'filter-pill active' : 'filter-pill'}
-                        onClick={() => setFilterDatePreset(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                  <div className="entry-filters-export">
+                    <button
+                      className="export-icon-button excel-export"
+                      type="button"
+                      onClick={handleDownloadFilteredExcel}
+                      aria-label="Download filtered transactions as Excel"
+                      title="Download Excel"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="m9 10 6 8M15 10l-6 8" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      className="export-icon-button pdf-export"
+                      type="button"
+                      onClick={handleDownloadFilteredPdf}
+                      aria-label="Download filtered transactions as PDF"
+                      title="Download PDF"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Zm0 0v5h5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M8.5 16.5h1.2c.9 0 1.5-.6 1.5-1.4s-.6-1.4-1.5-1.4H8.5Zm5.1 2v-4.8h1.2c1.3 0 2.2.9 2.2 2.4s-.9 2.4-2.2 2.4Zm-5.1 0v-1.2m0 0v1.2m4.3-4.8H12v4.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </div>
+                </div>
 
-                  <div className="filter-grid-modern">
-                    <label className="filter-control" htmlFor="filter-transaction-type">
-                      <span>Cashflow</span>
-                      <select
-                        id="filter-transaction-type"
-                        value={filterTransactionType}
-                        onChange={event => setFilterTransactionType(event.target.value)}
-                      >
-                        {typeFilterOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                <div className="entry-filters-segment" role="tablist" aria-label="Cashflow type">
+                  {typeFilterOptions.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={filterTransactionType === option.value}
+                      className={filterTransactionType === option.value ? `segment-pill active segment-${option.value}` : 'segment-pill'}
+                      onClick={() => setFilterTransactionType(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
 
+                <div className="entry-filters-presets" role="tablist" aria-label="Date range filters">
+                  {datePresetOptions.map(option => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={filterDatePreset === option.value ? 'filter-pill active' : 'filter-pill'}
+                      onClick={() => setFilterDatePreset(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className="filters-disclosure"
+                  aria-expanded={filtersExpanded}
+                  onClick={() => setFiltersExpanded(value => !value)}
+                >
+                  <span>{filtersExpanded ? 'Hide advanced filters' : 'Show advanced filters'}</span>
+                  <svg className={filtersExpanded ? 'chev open' : 'chev'} viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {filtersExpanded && (
+                  <div className="entry-filters-advanced">
                     <label className="filter-control" htmlFor="filter-member">
                       <span>Member</span>
                       <select
@@ -1181,54 +1195,47 @@ export default function Home() {
                         onChange={event => setFilterNote(event.target.value)}
                       />
                     </label>
-                  </div>
 
-                  <div className="filter-footer">
-                    <div className="filter-summary">
-                      <span className="badge">{filterTransactionType === 'all' ? 'All cashflow' : filterTransactionType === 'in' ? 'Cash in only' : 'Cash out only'}</span>
-                      <span className="badge">{filterMemberName === 'all' ? 'All members' : filterMemberName}</span>
-                      {filterNote.trim() && <span className="badge">Remarks search on</span>}
-                      {filterDatePreset === 'custom' && <span className="badge">Custom range</span>}
-                    </div>
-                    <div className="filter-actions">
-                      {activeFilterCount > 0 && (
-                        <button className="secondary compact-button" type="button" onClick={clearFilters}>
-                          Clear {activeFilterCount}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                    {filterDatePreset === 'custom' && (
+                      <div className="filter-custom-dates active">
+                        <label className="filter-control" htmlFor="filter-start-date">
+                          <span>From</span>
+                          <input
+                            id="filter-start-date"
+                            type="date"
+                            value={filterStartDate}
+                            onChange={event => setFilterStartDate(event.target.value)}
+                          />
+                        </label>
 
-                  {filterDatePreset === 'custom' && (
-                    <div className="advanced-filters-panel">
-                      <div className="advanced-filters-grid">
-                        <div className="filter-custom-dates active">
-                          <label className="filter-control" htmlFor="filter-start-date">
-                            <span>From</span>
-                            <input
-                              id="filter-start-date"
-                              type="date"
-                              value={filterStartDate}
-                              onChange={event => setFilterStartDate(event.target.value)}
-                            />
-                          </label>
-
-                          <label className="filter-control" htmlFor="filter-end-date">
-                            <span>To</span>
-                            <input
-                              id="filter-end-date"
-                              type="date"
-                              value={filterEndDate}
-                              onChange={event => setFilterEndDate(event.target.value)}
-                            />
-                          </label>
-                        </div>
+                        <label className="filter-control" htmlFor="filter-end-date">
+                          <span>To</span>
+                          <input
+                            id="filter-end-date"
+                            type="date"
+                            value={filterEndDate}
+                            onChange={event => setFilterEndDate(event.target.value)}
+                          />
+                        </label>
                       </div>
-                    </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="entry-filters-footer">
+                  <span className="entry-filters-summary">{filterSummaryLabel}</span>
+                  {activeFilterCount > 0 && (
+                    <button className="filter-clear-link" type="button" onClick={clearFilters}>
+                      Clear {activeFilterCount}
+                    </button>
                   )}
                 </div>
               </div>
+            </section>
+          </div>
 
+          <div className="right-panel">
+            <section className="card transactions-card">
               {loading ? (
                 <p className="muted">Loading transactions...</p>
               ) : filteredTransactions.length === 0 ? (

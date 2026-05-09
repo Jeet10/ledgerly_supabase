@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import BrandLogo from '../BrandLogo'
-import ThemeToggle from '../../features/ledger/components/ThemeToggle'
+import ThemeSwitcher, { DEFAULT_THEME, isValidTheme } from '../../features/ledger/components/ThemeSwitcher'
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState('')
@@ -11,9 +11,12 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'dark'
+    if (typeof window === 'undefined') return DEFAULT_THEME
     const savedTheme = window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark'
+    if (isValidTheme(savedTheme)) return savedTheme
+    if (savedTheme === 'dark') return 'midnight'
+    if (savedTheme === 'light') return 'daylight'
+    return DEFAULT_THEME
   })
 
   const handleSubmit = async (e) => {
@@ -41,7 +44,14 @@ export default function ResetPasswordPage() {
     }
   }
 
-  const toggleTheme = () => setTheme(currentTheme => (currentTheme === 'dark' ? 'light' : 'dark'))
+  const handleThemeChange = nextTheme => {
+    if (!isValidTheme(nextTheme)) return
+    setTheme(nextTheme)
+    if (typeof window !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', nextTheme)
+      window.localStorage.setItem('growhigh-theme', nextTheme)
+    }
+  }
 
   return (
     <main className="main-shell">
@@ -53,7 +63,7 @@ export default function ResetPasswordPage() {
             </div>
             <div className="brand-title-row">
               <BrandLogo />
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <ThemeSwitcher theme={theme} onChange={handleThemeChange} />
             </div>
             <p>
               Enter your email address and we'll send you instructions to reset your password.

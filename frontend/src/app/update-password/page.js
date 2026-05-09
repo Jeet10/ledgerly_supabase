@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import BrandLogo from '../BrandLogo'
-import ThemeToggle from '../../features/ledger/components/ThemeToggle'
+import ThemeSwitcher, { DEFAULT_THEME, isValidTheme } from '../../features/ledger/components/ThemeSwitcher'
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('')
@@ -14,9 +14,12 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState('')
   const router = useRouter()
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'dark'
+    if (typeof window === 'undefined') return DEFAULT_THEME
     const savedTheme = window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark'
+    if (isValidTheme(savedTheme)) return savedTheme
+    if (savedTheme === 'dark') return 'midnight'
+    if (savedTheme === 'light') return 'daylight'
+    return DEFAULT_THEME
   })
 
   useEffect(() => {
@@ -61,7 +64,9 @@ export default function UpdatePasswordPage() {
     }
   }
 
-  const toggleTheme = () => setTheme(currentTheme => (currentTheme === 'dark' ? 'light' : 'dark'))
+  const handleThemeChange = nextTheme => {
+    if (isValidTheme(nextTheme)) setTheme(nextTheme)
+  }
 
   return (
     <main className="main-shell">
@@ -73,7 +78,7 @@ export default function UpdatePasswordPage() {
             </div>
             <div className="brand-title-row">
               <BrandLogo />
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <ThemeSwitcher theme={theme} onChange={handleThemeChange} />
             </div>
             <p>
               Enter your new password below.

@@ -6,41 +6,50 @@ export default function BrandLogo({ compact = false, className = '' }) {
       <span className="brand-logo-mark" aria-hidden="true">
         <svg viewBox="0 0 96 96" role="img" focusable="false">
           <defs>
-            <linearGradient id="growhigh-sky" x1="18" y1="16" x2="78" y2="78" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#34d399" />
-              <stop offset="55%" stopColor="#2457d6" />
-              <stop offset="100%" stopColor="#102a63" />
+            <linearGradient id="gh-bg" x1="0" y1="0" x2="96" y2="96" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--logo-grad-start, #6366f1)" />
+              <stop offset="55%" stopColor="var(--logo-grad-mid, #8b5cf6)" />
+              <stop offset="100%" stopColor="var(--logo-grad-end, #06b6d4)" />
             </linearGradient>
-            <linearGradient id="growhigh-leaf" x1="28" y1="24" x2="60" y2="58" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#bbf7d0" />
-              <stop offset="100%" stopColor="#16a34a" />
+            <linearGradient id="gh-bar" x1="0" y1="80" x2="0" y2="20" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,1)" />
             </linearGradient>
+            <linearGradient id="gh-spark" x1="20" y1="60" x2="78" y2="22" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#fef9c3" />
+              <stop offset="100%" stopColor="#fde047" />
+            </linearGradient>
+            <radialGradient id="gh-glow" cx="0.7" cy="0.25" r="0.85">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </radialGradient>
           </defs>
-          <rect x="6" y="6" width="84" height="84" rx="28" fill="url(#growhigh-sky)" />
+          <rect x="4" y="4" width="88" height="88" rx="26" fill="url(#gh-bg)" />
+          <rect x="4" y="4" width="88" height="88" rx="26" fill="url(#gh-glow)" />
+          <rect x="4" y="4" width="88" height="88" rx="26" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+          <g>
+            <rect x="22" y="58" width="10" height="20" rx="3" fill="url(#gh-bar)" opacity="0.85" />
+            <rect x="38" y="46" width="10" height="32" rx="3" fill="url(#gh-bar)" opacity="0.92" />
+            <rect x="54" y="34" width="10" height="44" rx="3" fill="url(#gh-bar)" />
+          </g>
           <path
-            d="M26 63c0-3.314 2.686-6 6-6h6v-9c0-3.314 2.686-6 6-6h2v-11c0-2.21 1.79-4 4-4s4 1.79 4 4v20.18l8.397-8.398c1.563-1.562 4.095-1.562 5.658 0 1.562 1.563 1.562 4.095 0 5.658L55.314 61H64c3.314 0 6 2.686 6 6s-2.686 6-6 6H32c-3.314 0-6-2.686-6-6Z"
-            fill="rgba(255,255,255,0.18)"
+            d="M22 56 L40 42 L54 50 L72 28"
+            fill="none"
+            stroke="url(#gh-spark)"
+            strokeWidth="3.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
           <path
-            d="M47 25c11.028 0 20 8.972 20 20 0 1.66-1.34 3-3 3s-3-1.34-3-3c0-7.72-6.28-14-14-14-1.66 0-3-1.34-3-3s1.34-3 3-3Z"
-            fill="rgba(255,255,255,0.55)"
+            d="M64 26 L74 24 L72 34 Z"
+            fill="url(#gh-spark)"
+            stroke="url(#gh-spark)"
+            strokeWidth="2"
+            strokeLinejoin="round"
           />
-          <path
-            d="M48 70c-2.21 0-4-1.79-4-4V36c0-2.21 1.79-4 4-4s4 1.79 4 4v30c0 2.21-1.79 4-4 4Z"
-            fill="#f8fafc"
-          />
-          <path
-            d="M48 37c0-9.774 7.386-17.181 18.34-18.39.944-.104 1.612.93 1.132 1.749C63.177 27.68 56.09 33.4 48 37Z"
-            fill="url(#growhigh-leaf)"
-          />
-          <path
-            d="M48 44c-8.091-3.6-15.177-9.32-19.472-16.641-.48-.819.188-1.853 1.132-1.749C40.614 26.819 48 34.226 48 44Z"
-            fill="#86efac"
-          />
-          <path
-            d="M29 67.5c0-1.933 1.567-3.5 3.5-3.5H39v7h-6.5c-1.933 0-3.5-1.567-3.5-3.5Zm14 0c0-1.933 1.567-3.5 3.5-3.5H53v7h-6.5c-1.933 0-3.5-1.567-3.5-3.5Zm14 0c0-1.933 1.567-3.5 3.5-3.5H67v7h-6.5c-1.933 0-3.5-1.567-3.5-3.5Z"
-            fill="#f8fafc"
-          />
+          <circle cx="22" cy="56" r="2.6" fill="#fef9c3" />
+          <circle cx="40" cy="42" r="2.6" fill="#fef9c3" />
+          <circle cx="54" cy="50" r="2.6" fill="#fef9c3" />
         </svg>
       </span>
       <span className="brand-logo-copy">

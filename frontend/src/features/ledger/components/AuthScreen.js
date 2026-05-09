@@ -1,9 +1,9 @@
 import BrandLogo from '../../../app/BrandLogo'
-import ThemeToggle from './ThemeToggle'
+import ThemeSwitcher from './ThemeSwitcher'
 
 export default function AuthScreen({
   theme,
-  toggleTheme,
+  onThemeChange,
   error,
   setError,
   authMode,
@@ -28,7 +28,7 @@ export default function AuthScreen({
             </div>
             <div className="brand-title-row">
               <BrandLogo />
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <ThemeSwitcher theme={theme} onChange={onThemeChange} />
             </div>
             <p>
               Sign in as an organization user to access your own ledger. Members stay inside your workspace and are used
