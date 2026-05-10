@@ -15,7 +15,10 @@ export default function UpdatePasswordPage() {
   const router = useRouter()
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_THEME
-    const savedTheme = window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
+    const savedTheme =
+      window.localStorage.getItem('growwhigh-theme') ||
+      window.localStorage.getItem('growhigh-theme') ||
+      window.localStorage.getItem('ledgerly-theme')
     if (isValidTheme(savedTheme)) return savedTheme
     if (savedTheme === 'dark') return 'midnight'
     if (savedTheme === 'light') return 'daylight'
@@ -24,7 +27,7 @@ export default function UpdatePasswordPage() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    window.localStorage.setItem('growhigh-theme', theme)
+    window.localStorage.setItem('growwhigh-theme', theme)
   }, [theme])
 
   const handleSubmit = async (e) => {

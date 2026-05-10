@@ -29,7 +29,9 @@ export default function Home() {
     if (typeof window === 'undefined') return DEFAULT_THEME
 
     const savedTheme =
-      window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
+      window.localStorage.getItem('growwhigh-theme') ||
+      window.localStorage.getItem('growhigh-theme') ||
+      window.localStorage.getItem('ledgerly-theme')
     if (isValidTheme(savedTheme)) return savedTheme
     if (savedTheme === 'dark') return 'midnight'
     if (savedTheme === 'light') return 'daylight'
@@ -75,7 +77,7 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  useEffect(() => {
+  useEffect(() => {w
     document.documentElement.setAttribute('data-theme', theme)
     window.localStorage.setItem('growhigh-theme', theme)
   }, [theme])
@@ -405,7 +407,7 @@ export default function Home() {
 
   const exportFileBaseName = useMemo(() => {
     const dateSegment = filterDatePreset === 'custom' ? filterSummaryLabel.replaceAll(' ', '-').replaceAll('/', '-') : filterDatePreset
-    const memberSegment = filterMemberName === 'all' ? 'all-members' : filterMemberName.toLowerCase().replace(/\s+/g, '-')
+    const memberwSegment = filterMemberName === 'all' ? 'all-members' : filterMemberName.toLowerCase().replace(/\s+/g, '-')
     const typeSegment = filterTransactionType === 'all' ? 'all-cashflow' : `cash-${filterTransactionType}`
     return `growhigh-${dateSegment}-${memberSegment}-${typeSegment}`
   }, [filterDatePreset, filterMemberName, filterSummaryLabel, filterTransactionType])

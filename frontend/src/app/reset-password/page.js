@@ -49,7 +49,7 @@ export default function ResetPasswordPage() {
     setTheme(nextTheme)
     if (typeof window !== 'undefined') {
       document.documentElement.setAttribute('data-theme', nextTheme)
-      window.localStorage.setItem('growhigh-theme', nextTheme)
+      window.localStorage.setItem('growwhigh-theme', nextTheme)
     }
   }
 

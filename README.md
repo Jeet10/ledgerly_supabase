@@ -1,4 +1,4 @@
-# Ledgerly (Supabase Version)
+# GrowwHigh (Supabase Version)
 
 A simple cash ledger app built with Next.js and Supabase.
 
