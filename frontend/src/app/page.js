@@ -77,9 +77,9 @@ export default function Home() {
   const [password, setPassword] = useState('')
   const [authSubmitting, setAuthSubmitting] = useState(false)
 
-  useEffect(() => {w
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    window.localStorage.setItem('growhigh-theme', theme)
+    window.localStorage.setItem('growwhigh-theme', theme)
   }, [theme])
 
   useEffect(() => {
@@ -407,9 +407,9 @@ export default function Home() {
 
   const exportFileBaseName = useMemo(() => {
     const dateSegment = filterDatePreset === 'custom' ? filterSummaryLabel.replaceAll(' ', '-').replaceAll('/', '-') : filterDatePreset
-    const memberwSegment = filterMemberName === 'all' ? 'all-members' : filterMemberName.toLowerCase().replace(/\s+/g, '-')
+    const memberSegment = filterMemberName === 'all' ? 'all-members' : filterMemberName.toLowerCase().replace(/\s+/g, '-')
     const typeSegment = filterTransactionType === 'all' ? 'all-cashflow' : `cash-${filterTransactionType}`
-    return `growhigh-${dateSegment}-${memberSegment}-${typeSegment}`
+    return `growwhigh-${dateSegment}-${memberSegment}-${typeSegment}`
   }, [filterDatePreset, filterMemberName, filterSummaryLabel, filterTransactionType])
 
   const exportRows = useMemo(

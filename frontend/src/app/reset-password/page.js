@@ -12,7 +12,10 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_THEME
-    const savedTheme = window.localStorage.getItem('growhigh-theme') || window.localStorage.getItem('ledgerly-theme')
+    const savedTheme =
+      window.localStorage.getItem('growwhigh-theme') ||
+      window.localStorage.getItem('growhigh-theme') ||
+      window.localStorage.getItem('ledgerly-theme')
     if (isValidTheme(savedTheme)) return savedTheme
     if (savedTheme === 'dark') return 'midnight'
     if (savedTheme === 'light') return 'daylight'
